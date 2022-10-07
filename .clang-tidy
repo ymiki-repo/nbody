@@ -1,0 +1,2 @@
+---
+Checks: "*,-llvmlibc-*,-fuchsia-default-*,-fuchsia-multiple-inheritance,-fuchsia-trailing-return,-google-readability-todo,-readability-identifier-length"
