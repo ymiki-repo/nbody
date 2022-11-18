@@ -11,9 +11,11 @@ set(USER_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 option(BENCHMARK_MODE "On to perform benchmark" OFF)
 option(CALCULATE_POTENTIAL "On to calculate gravitational potential" ON)
 option(HERMITE_SCHEME "On to adopt 4th-order Hermite scheme" OFF)
+option(GPU_EXECUTION "On to compile code for GPU" ON)
 message(STATUS "BENCHMARK_MODE is ${BENCHMARK_MODE}")
 message(STATUS "CALCULATE_POTENTIAL is ${CALCULATE_POTENTIAL}")
 message(STATUS "HERMITE_SCHEME is ${HERMITE_SCHEME}")
+message(STATUS "GPU_EXECUTION is ${GPU_EXECUTION}")
 
 # enforce Release as build type in benchmark mode
 if(BENCHMARK_MODE)
@@ -158,3 +160,4 @@ message(STATUS "FP_H = ${FP_H}")
 # add subdirectories
 add_subdirectory(cpp/base)
 add_subdirectory(cpp/omp_simd)
+add_subdirectory(cpp/omp_target)

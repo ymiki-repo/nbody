@@ -1,3 +1,9 @@
+# for NVIDIA HPC SDK
+if("${CMAKE_CXX_COMPILER_ID}" MATCHES "NVHPC")
+    option(RELAX_RSQRT_ACCURACY "On to relax precision for reciprocal square root to accelerate simulations" OFF)
+    message(STATUS "RELAX_RSQRT_ACCURACY is ${RELAX_RSQRT_ACCURACY}")
+endif("${CMAKE_CXX_COMPILER_ID}" MATCHES "NVHPC")
+
 # set compilation flags
 target_compile_options(${PROJECT_NAME}
     PRIVATE
@@ -25,12 +31,12 @@ target_compile_options(${PROJECT_NAME}
     $<$<NOT:$<CONFIG:Debug>>:-O3>
     $<$<CXX_COMPILER_ID:Intel>:-restrict>
     $<$<AND:$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:Intel>>:-ip -xHost -qopt-report=3>
-
-    # $<$<AND:$<NOT:$<CONFIG:Debug>>,$<OR:$<CXX_COMPILER_ID:IntelLLVM>,$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:GNU>>>:-ffast-math -fno-finite-math-only -funroll-loops -march=native>
     $<$<AND:$<NOT:$<CONFIG:Debug>>,$<OR:$<CXX_COMPILER_ID:IntelLLVM>,$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:GNU>>>:-ffast-math -funroll-loops>
-    $<$<AND:$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:NVHPC>,$<COMPILE_LANGUAGE:CXX>>:-stdpar=multicore>
-    $<$<AND:$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:NVHPC>>:-target=multicore -Minfo=all>
+    $<$<AND:$<CXX_COMPILER_ID:NVHPC>,$<BOOL:${RELAX_RSQRT_ACCURACY}>>:-Mfprelaxed=rsqrt>
 
     # specify CPU architecture
     ${SET_TARGET_CPU}
+
+    # specify GPU architecture
+    $<$<BOOL:${GPU_EXECUTION}>:${SET_TARGET_GPU}>
 )

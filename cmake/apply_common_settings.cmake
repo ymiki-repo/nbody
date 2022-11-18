@@ -1,6 +1,11 @@
 # set CPU architecture
 include(${USER_MODULE_PATH}/set_target_cpu.cmake)
 
+# set GPU architecture
+if(GPU_EXECUTION)
+    include(${USER_MODULE_PATH}/set_target_gpu.cmake)
+endif(GPU_EXECUTION)
+
 # find OpenMP
 find_package(OpenMP)
 
