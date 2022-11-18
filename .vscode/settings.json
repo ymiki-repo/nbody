@@ -1,0 +1,19 @@
+{
+    "files.associations": {
+        "*.xcr": "perl",
+        "*.2": "tcl",
+        "*.1": "tcl",
+        "*.0": "tcl",
+        "*.6": "tcl",
+        "*.5": "tcl",
+        "*.3": "tcl",
+        "*.4": "tcl",
+        "common": "tcl",
+        ".generic": "tcl",
+        "*.hip": "cuda-cpp",
+        ".clang-tidy": "yaml",
+        "iomanip": "cpp",
+        "limits": "cpp",
+        "ostream": "cpp"
+    }
+}

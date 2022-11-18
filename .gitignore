@@ -1,2 +1,11 @@
 # miscellaneous files
+cmake.log
 make.log
+ninja.log
+doxygen.log
+# directories for numerical simulations or development
+*build/
+*debug/
+# directory for Doxygen
+html/
+latex/

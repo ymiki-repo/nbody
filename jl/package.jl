@@ -1,0 +1,16 @@
+using Pkg
+Pkg.update()
+
+Pkg.add("ArgParse")
+Pkg.add("BenchmarkTools")
+Pkg.add("CSV")
+Pkg.add("DataFrames")
+Pkg.add("FilePaths")
+Pkg.add("Glob")
+Pkg.add("HDF5")
+Pkg.add("MPIPreferences")
+Pkg.add("MPI")
+Pkg.add("Parameters")
+Pkg.add("PyCall")
+Pkg.add("PyPlot")
+Pkg.add("StatsBase")
