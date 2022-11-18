@@ -1,5 +1,5 @@
 # compile direct N-body code (base implementation)
-project(omp_target CXX)
+project(omp_dist CXX)
 message(STATUS "Generate ${PROJECT_NAME} ...")
 
 # define the executable
@@ -25,7 +25,7 @@ target_compile_options(${PROJECT_NAME}
     # -target x86_64-pc-linux-gnu -fopenmp-targets=amdgcn-amd-amdhsa -Xopenmp-target=amdgcn-amd-amdhsa
     # -march=gfx1032
 
-    # for NVIDIA HPC SDK (OpenMP offloading: -mp=[gpu multicore], ISO C++17: -stdpar=[gpu multicore], -acc=[gpu multicore])
-    $<$<AND:$<BOOL:${GPU_EXECUTION}>,$<CXX_COMPILER_ID:NVHPC>>:${SET_TARGET_GPU},managed -mp=gpu>
+    # for NVIDIA HPC SDK (OpenMP offloading: -mp=[gpu multicore] -Minfo=accel,opt,mp, ISO C++17: -stdpar=[gpu multicore] -Minfo=accel,opt,stdpar, OpenACC: -acc=[gpu multicore] -Minfo=accel,opt)
+    $<$<AND:$<BOOL:${GPU_EXECUTION}>,$<CXX_COMPILER_ID:NVHPC>>:-mp=gpu ${SET_TARGET_GPU},managed -Minfo=accel,opt,mp>
     $<$<AND:$<NOT:$<BOOL:${GPU_EXECUTION}>>,$<CXX_COMPILER_ID:NVHPC>>:-mp=multicore>
 )

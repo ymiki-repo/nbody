@@ -157,7 +157,10 @@ endif(${FP_M} GREATER ${FP_H})
 
 message(STATUS "FP_H = ${FP_H}")
 
-# add subdirectories
+# add subdirectories for CPU code
 add_subdirectory(cpp/base)
 add_subdirectory(cpp/omp_simd)
-add_subdirectory(cpp/omp_target)
+
+# add subdirectories for GPU code
+add_subdirectory(cpp/omp_dist)
+add_subdirectory(cpp/omp_loop)
