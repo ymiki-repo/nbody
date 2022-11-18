@@ -108,3 +108,9 @@ $ julia --project -e 'using MPIPreferences; MPIPreferences.use_system_binary()' 
   ```
 
   </details>
+
+## modules for Wisteria/BDEC-1 (Aquarius)
+
+```sh
+module load nvidia # NVIDIA HPC SDK
+```

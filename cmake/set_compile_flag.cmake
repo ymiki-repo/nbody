@@ -36,7 +36,4 @@ target_compile_options(${PROJECT_NAME}
 
     # specify CPU architecture
     ${SET_TARGET_CPU}
-
-    # specify GPU architecture
-    $<$<BOOL:${GPU_EXECUTION}>:${SET_TARGET_GPU}>
 )

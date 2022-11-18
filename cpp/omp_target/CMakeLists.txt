@@ -26,6 +26,6 @@ target_compile_options(${PROJECT_NAME}
     # -march=gfx1032
 
     # for NVIDIA HPC SDK (OpenMP offloading: -mp=[gpu multicore], ISO C++17: -stdpar=[gpu multicore], -acc=[gpu multicore])
-    $<$<AND:$<BOOL:${GPU_EXECUTION}>,$<CXX_COMPILER_ID:NVHPC>>:-mp=gpu -gpu=managed>
+    $<$<AND:$<BOOL:${GPU_EXECUTION}>,$<CXX_COMPILER_ID:NVHPC>>:${SET_TARGET_GPU},managed -mp=gpu>
     $<$<AND:$<NOT:$<BOOL:${GPU_EXECUTION}>>,$<CXX_COMPILER_ID:NVHPC>>:-mp=multicore>
 )
