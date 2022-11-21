@@ -36,4 +36,7 @@ target_compile_options(${PROJECT_NAME}
 
     # specify CPU architecture
     ${SET_TARGET_CPU}
+
+    # flags for NVIDIA GPUs
+    $<$<AND:$<BOOL:${GPU_EXECUTION}>,$<CXX_COMPILER_ID:NVIDIA>>:-Xptxas -v -Xptxas -warn-spills -Xptxas -warn-lmem-usage -lineinfo>
 )

@@ -1,69 +1,35 @@
-# # CMAKE_<LANG>_COMPILER_ID
-# ARMCC = ARM Compiler (arm.com)
-# ARMClang = ARM Compiler based on Clang (arm.com)
-# Clang = LLVM Clang (clang.llvm.org)
-# Cray = Cray Compiler (cray.com)
-# Fujitsu = Fujitsu HPC compiler (Trad mode)
-# FujitsuClang = Fujitsu HPC compiler (Clang mode)
-# GNU = GNU Compiler Collection (gcc.gnu.org)
-# HP = Hewlett-Packard Compiler (hp.com)
-# Intel = Intel Compiler (intel.com)
-# IntelLLVM = Intel LLVM-Based Compiler (intel.com)
-# NVHPC = NVIDIA HPC SDK Compiler (nvidia.com)
-# NVIDIA = NVIDIA CUDA Compiler (nvidia.com)
+set(TARGET_GPU NVIDIA_CC80 CACHE STRING "target GPU architecture")
 
-# # GCC: -march=[x86-64-v4 cascadelake icelake-server icelake-client sapphirerapids alderlake rocketlake znver2 znver3]
-# # LLVM: -march=[x86-64-v4 cascadelake icelake-server icelake-client sapphirerapids alderlake rocketlake znver2 znver3] (check by $ llc --version; $ llc -march=ARCH -mattr=help # ARCH = [amdgcn, x86-64])
-# if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" OR "${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
-# set(TARGET_CPU native CACHE STRING "target CPU architecture")
-# set_property(CACHE TARGET_CPU PROPERTY STRINGS znver3 znver2 cascadelake icelake-server icelake-client sapphirerapids alderlake rocketlake x86-64-v4 x86-64-v3 x86-64-v2 x86-64 native)
-# set(SET_TARGET_CPU "-march=${TARGET_CPU}")
-# endif("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" OR "${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
-
-# # Intel LLVM: -march=[cascadelake icelake-server icelake-client sapphirerapids alderlake rocketlake core-avx2]
-# # for Intel oneAPI
-# if("${CMAKE_CXX_COMPILER_ID}" MATCHES "IntelLLVM" OR "${CMAKE_CXX_COMPILER_ID}" MATCHES "Intel")
-# set(TARGET_CPU core-avx2 CACHE STRING "target CPU architecture")
-# set_property(CACHE TARGET_CPU PROPERTY STRINGS icelake-server cascadelake sapphirerapids alderlake rocketlake core-avx2)
-# if(${TARGET_CPU} STREQUAL core-avx2)
-# set(SET_TARGET_CPU "-mtune=${TARGET_CPU}")
-# else(${TARGET_CPU} STREQUAL core-avx2)
-# set(SET_TARGET_CPU "-march=${TARGET_CPU}")
-# endif(${TARGET_CPU} STREQUAL core-avx2)
-# endif("${CMAKE_CXX_COMPILER_ID}" MATCHES "IntelLLVM" OR "${CMAKE_CXX_COMPILER_ID}" MATCHES "Intel")
-
-set(TARGET_GPU NVIDIA_A100 CACHE STRING "target GPU architecture")
-
-# NVHPC: -gpu=[cc80 cc90 ccall]
+# for NVIDIA HPC SDK
 if("${CMAKE_CXX_COMPILER_ID}" MATCHES "NVHPC")
-    set_property(CACHE TARGET_GPU PROPERTY STRINGS NVIDIA_H100 NVIDIA_A100 NVIDIA_V100)
+    set_property(CACHE TARGET_GPU PROPERTY STRINGS NVIDIA_CC90 NVIDIA_CC80 NVIDIA_CC70)
 
-    if("${TARGET_GPU}" MATCHES "NVIDIA_H100")
+    if("${TARGET_GPU}" MATCHES "NVIDIA_CC90")
         set(SET_TARGET_GPU "-gpu=cc90")
-    elseif("${TARGET_GPU}" MATCHES "NVIDIA_A100")
+    elseif("${TARGET_GPU}" MATCHES "NVIDIA_CC80")
         set(SET_TARGET_GPU "-gpu=cc80")
-    elseif("${TARGET_GPU}" MATCHES "NVIDIA_V100")
+    elseif("${TARGET_GPU}" MATCHES "NVIDIA_CC70")
         set(SET_TARGET_GPU "-gpu=cc70")
-    endif("${TARGET_GPU}" MATCHES "NVIDIA_H100")
+    endif("${TARGET_GPU}" MATCHES "NVIDIA_CC90")
 endif("${CMAKE_CXX_COMPILER_ID}" MATCHES "NVHPC")
 
-# NVIDIA: -gencode arch=compute_80,code=sm_60 -Xptxas -v -Xptxas -warn-spills -Xptxas -warn-lmem-usage -lineinfo
+# for CUDA C++
 if("${CMAKE_CXX_COMPILER_ID}" MATCHES "NVIDIA")
-    set_property(CACHE TARGET_GPU PROPERTY STRINGS NVIDIA_H100 NVIDIA_A100 NVIDIA_V100 NVIDIA_H100_pascal NVIDIA_A100_pascal NVIDIA_V100_pascal)
+    set_property(CACHE TARGET_GPU PROPERTY STRINGS NVIDIA_CC90 NVIDIA_CC80 NVIDIA_CC70 NVIDIA_CC90_CC60 NVIDIA_CC80_CC60 NVIDIA_CC70_CC60)
 
-    if("${TARGET_GPU}" MATCHES "NVIDIA_H100")
+    if("${TARGET_GPU}" MATCHES "NVIDIA_CC90")
         set(SET_TARGET_GPU "-gencode arch=compute_90,code=sm_90")
-    elseif("${TARGET_GPU}" MATCHES "NVIDIA_H100_pascal")
+    elseif("${TARGET_GPU}" MATCHES "NVIDIA_CC90_CC60")
         set(SET_TARGET_GPU "-gencode arch=compute_90,code=sm_60")
-    elseif("${TARGET_GPU}" MATCHES "NVIDIA_A100")
+    elseif("${TARGET_GPU}" MATCHES "NVIDIA_CC80")
         set(SET_TARGET_GPU "-gencode arch=compute_80,code=sm_80")
-    elseif("${TARGET_GPU}" MATCHES "NVIDIA_A100_pascal")
+    elseif("${TARGET_GPU}" MATCHES "NVIDIA_CC80_CC60")
         set(SET_TARGET_GPU "-gencode arch=compute_80,code=sm_60")
-    elseif("${TARGET_GPU}" MATCHES "NVIDIA_V100")
+    elseif("${TARGET_GPU}" MATCHES "NVIDIA_CC70")
         set(SET_TARGET_GPU "-gencode arch=compute_70,code=sm_70")
-    elseif("${TARGET_GPU}" MATCHES "NVIDIA_V100_pascal")
+    elseif("${TARGET_GPU}" MATCHES "NVIDIA_CC70_CC60")
         set(SET_TARGET_GPU "-gencode arch=compute_70,code=sm_60")
-    endif("${TARGET_GPU}" MATCHES "NVIDIA_H100")
+    endif("${TARGET_GPU}" MATCHES "NVIDIA_CC90")
 endif("${CMAKE_CXX_COMPILER_ID}" MATCHES "NVIDIA")
 
 # output the specified GPU

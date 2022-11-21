@@ -1,4 +1,4 @@
-# compile direct N-body code (base implementation)
+# compile direct N-body code (GPU implementation using OpenACC: use of Unified Memory)
 project(acc_managed CXX)
 message(STATUS "Generate ${PROJECT_NAME} ...")
 

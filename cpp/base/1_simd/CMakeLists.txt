@@ -1,4 +1,4 @@
-# compile direct N-body code (base implementation)
+# compile direct N-body code (CPU implementation using omp simd directives)
 project(omp_simd CXX)
 message(STATUS "Generate ${PROJECT_NAME} ...")
 

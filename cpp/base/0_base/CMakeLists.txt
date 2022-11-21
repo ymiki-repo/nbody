@@ -1,4 +1,4 @@
-# compile direct N-body code (base implementation)
+# compile direct N-body code (base implementation for multicore CPUs)
 project(base CXX)
 message(STATUS "Generate ${PROJECT_NAME} ...")
 

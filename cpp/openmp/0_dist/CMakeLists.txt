@@ -1,4 +1,4 @@
-# compile direct N-body code (base implementation)
+# compile direct N-body code (GPU implementation using OpenMP target directives: distribute directives, use of Unified Memory)
 project(omp_dist CXX)
 message(STATUS "Generate ${PROJECT_NAME} ...")
 

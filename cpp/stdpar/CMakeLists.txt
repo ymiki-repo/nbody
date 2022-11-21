@@ -1,4 +1,4 @@
-# compile direct N-body code (base implementation)
+# compile direct N-body code (implementation using C++17 Parallel Algorithms version)
 project(acc_managed CXX)
 message(STATUS "Generate ${PROJECT_NAME} ...")
 
