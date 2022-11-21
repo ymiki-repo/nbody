@@ -17,7 +17,6 @@ add_executable(${PROJECT_NAME}
 include(${USER_MODULE_PATH}/apply_common_settings.cmake)
 
 # add GPU configuration
-# include(${USER_MODULE_PATH}/set_target_gpu.cmake)
 target_compile_options(${PROJECT_NAME}
     PRIVATE
 
