@@ -1,5 +1,5 @@
 # compile direct N-body code (base implementation)
-project(omp_loop CXX)
+project(acc_managed CXX)
 message(STATUS "Generate ${PROJECT_NAME} ...")
 
 # define the executable
@@ -20,6 +20,6 @@ include(${USER_MODULE_PATH}/apply_common_settings.cmake)
 target_compile_options(${PROJECT_NAME}
     PRIVATE
 
-    $<$<AND:$<BOOL:${GPU_EXECUTION}>,$<CXX_COMPILER_ID:NVHPC>>:-mp=gpu ${SET_TARGET_GPU},managed -Minfo=accel,opt,mp>
+    $<$<AND:$<BOOL:${GPU_EXECUTION}>,$<CXX_COMPILER_ID:NVHPC>>:-stdpar=gpu ${SET_TARGET_GPU},managed -Minfo=accel,opt,stdpar>
     $<$<AND:$<NOT:$<BOOL:${GPU_EXECUTION}>>,$<CXX_COMPILER_ID:NVHPC>>:-mp=multicore>
 )

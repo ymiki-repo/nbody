@@ -30,6 +30,10 @@
 
 constexpr type::flt_acc newton = AS_FLT_ACC(1.0);  ///< gravitational constant
 
+#ifndef NTHREADS
+constexpr type::int_idx NTHREADS = 256U;
+#endif  // NTHREADS
+
 ///
 /// @brief calculate gravitational acceleration
 ///
@@ -430,7 +434,7 @@ static inline auto set_time_step(const type::int_idx num, type::nbody &body, con
   if (time_next < time_sync) {
     // adopt block time step
     const auto next_time_next = time_pres + std::exp2(AS_FP_M(1.0) + std::floor(std::log2(time_next - time_pres)));
-    for (type::int_idx ii = type::N_simd_fp_l; ii < num; ii += type::N_simd_fp_l) {
+    for (type::int_idx ii = NTHREADS; ii < num; ii += NTHREADS) {
       if (body.nxt[ii] >= next_time_next) {
         Ni = ii;
         break;

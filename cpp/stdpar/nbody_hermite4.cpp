@@ -10,11 +10,14 @@
 
 #include <unistd.h>
 
-#include <boost/filesystem.hpp>                ///< boost::filesystem
-#include <boost/math/constants/constants.hpp>  ///< boost::math::constants::two_pi
-#include <boost/program_options.hpp>           ///< boost::program_options
-#include <cmath>                               ///< std::fma
-#include <cstdint>                             ///< int32_t
+#include <algorithm>
+#include <boost/filesystem.hpp>                  ///< boost::filesystem
+#include <boost/iterator/counting_iterator.hpp>  ///< boost::counting_iterator
+#include <boost/math/constants/constants.hpp>    ///< boost::math::constants::two_pi
+#include <boost/program_options.hpp>             ///< boost::program_options
+#include <cmath>                                 ///< std::fma
+#include <cstdint>                               ///< int32_t
+#include <execution>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -50,8 +53,7 @@ constexpr type::int_idx NTHREADS = 256U;
 static inline void calc_acc(
     const type::int_idx Ni, const type::position *const ipos, const type::velocity *const ivel, type::acceleration *__restrict iacc, type::jerk *__restrict ijrk,
     const type::int_idx Nj, const type::position *const jpos, const type::velocity *const jvel, const type::fp_l eps2) {
-#pragma omp target teams distribute parallel for simd thread_limit(NTHREADS)
-  for (type::int_idx ii = 0U; ii < Ni; ii++) {
+  std::for_each_n(std::execution::par, boost::iterators::counting_iterator<type::int_idx>(0U), Ni, [=](const type::int_idx ii) {
     // initialization
     const auto pi = ipos[ii];
     const auto vi = ivel[ii];
@@ -94,7 +96,7 @@ static inline void calc_acc(
     }
     iacc[ii] = ai;
     ijrk[ii] = ji;
-  }
+  });
 }
 
 #ifndef BENCHMARK_MODE
@@ -113,8 +115,7 @@ static inline void trim_acc(const type::int_idx Ni, type::acceleration *__restri
                             const type::position *const pos, const type::flt_acc eps_inv
 #endif  // CALCULATE_POTENTIAL
 ) {
-#pragma omp target teams distribute parallel for simd
-  for (type::int_idx ii = 0U; ii < Ni; ii++) {
+  std::for_each_n(std::execution::par, boost::iterators::counting_iterator<type::int_idx>(0U), Ni, [=](const type::int_idx ii) {
     // initialization
     auto ai = acc[ii];
 
@@ -133,7 +134,7 @@ static inline void trim_acc(const type::int_idx Ni, type::acceleration *__restri
     ji.y *= newton;
     ji.z *= newton;
     jerk[ii] = ji;
-  }
+  });
 }
 
 ///
@@ -157,8 +158,7 @@ static inline void guess_initial_dt(
     const type::int_idx Ni, const type::position *const ipos, const type::velocity *const ivel, const type::acceleration *const iacc, const type::jerk *const ijrk,
     const type::int_idx Nj, const type::position *const jpos, const type::velocity *const jvel, const type::acceleration *const jacc, const type::jerk *const jjrk,
     const type::fp_l eps2, const type::fp_m eta, type::fp_m *__restrict dt) {
-#pragma omp target teams distribute parallel for simd thread_limit(NTHREADS)
-  for (type::int_idx ii = 0U; ii < Ni; ii++) {
+  std::for_each_n(std::execution::par, boost::iterators::counting_iterator<type::int_idx>(0U), Ni, [=](const type::int_idx ii) {
     // initialization
     const auto p_i = ipos[ii];
     const auto v_i = ivel[ii];
@@ -229,7 +229,7 @@ static inline void guess_initial_dt(
     const auto j2 = j_i.x * j_i.x + j_i.y * j_i.y + j_i.z * j_i.z;
     const auto s2 = s0x * s0x + s0y * s0y + s0z * s0z;
     dt[ii] = eta * std::sqrt((j2 + std::sqrt(s2 * (a_i.x * a_i.x + a_i.y * a_i.y + a_i.z * a_i.z))) / (s2 + std::sqrt(j2 * (c0x * c0x + c0y * c0y + c0z * c0z))));
-  }
+  });
 }
 
 ///
@@ -248,8 +248,7 @@ static inline void guess_initial_dt(
 static inline void predict(
     const type::int_idx jnum, const type::fp_m *const t_pres, const type::position *const pos0, const type::velocity *const vel0, const type::acceleration *const acc0, const type::jerk *const jrk0,
     type::position *__restrict pos1, type::velocity *__restrict vel1, const type::fp_m t_next) {
-#pragma omp target teams distribute parallel for simd
-  for (type::int_idx jj = 0U; jj < jnum; jj++) {
+  std::for_each_n(std::execution::par, boost::iterators::counting_iterator<type::int_idx>(0U), jnum, [=](const type::int_idx jj) {
     // set time step for this particle
     const auto dt = t_next - t_pres[jj];
     const auto dt_2 = AS_FP_M(0.5) * dt;
@@ -273,7 +272,7 @@ static inline void predict(
     // store the predicted position and velocity
     pos1[jj] = p1;
     vel1[jj] = v1;
-  }
+  });
 }
 
 ///
@@ -296,8 +295,7 @@ static inline void predict(
 static inline void correct(
     const type::int_idx inum, type::fp_m *__restrict t_pres, type::position *__restrict pos0, type::velocity *__restrict vel0, type::acceleration *__restrict acc0, type::jerk *__restrict jrk0, type::fp_m *__restrict t_next,
     const type::position *const pos1, const type::velocity *const vel1, const type::acceleration *const acc1, const type::jerk *const jrk1, const type::fp_m t1, const type::fp_m eta) {
-#pragma omp target teams distribute parallel for simd
-  for (type::int_idx ii = 0U; ii < inum; ii++) {
+  std::for_each_n(std::execution::par, boost::iterators::counting_iterator<type::int_idx>(0U), inum, [=](const type::int_idx ii) {
     // set time step for this particle
     const auto dt = t1 - t_pres[ii];
     t_pres[ii] = t1;
@@ -352,7 +350,7 @@ static inline void correct(
     const auto j2 = j1.x * j1.x + j1.y * j1.y + j1.z * j1.z;
     const auto s2 = s1x * s1x + s1y * s1y + s1z * s1z;
     t_next[ii] = t1 + eta * std::sqrt((j2 + std::sqrt(s2 * (a1.x * a1.x + a1.y * a1.y + a1.z * a1.z))) / (s2 + std::sqrt(j2 * (c0x * c0x + c0y * c0y + c0z * c0z))));
-  }
+  });
 }
 
 ///
@@ -368,11 +366,10 @@ static inline void correct(
 static inline void sort_particles(const type::int_idx Ni, const type::int_idx num, type::int_idx *__restrict tag, type::nbody *__restrict src, type::nbody *__restrict dst) {
   // sort particle time
   std::iota(tag, tag + Ni, 0U);
-  std::sort(tag, tag + Ni, [src](auto ii, auto jj) { return ((*src).nxt[ii] < (*src).nxt[jj]); });
+  std::sort(std::execution::par, tag, tag + Ni, [src](auto ii, auto jj) { return ((*src).nxt[ii] < (*src).nxt[jj]); });
 
   // sort N-body particles
-#pragma omp target teams distribute parallel for simd
-  for (type::int_idx ii = 0U; ii < Ni; ii++) {
+  std::for_each_n(std::execution::par, boost::iterators::counting_iterator<type::int_idx>(0U), Ni, [=](const type::int_idx ii) {
     const auto jj = tag[ii];
 
     (*dst).pos[ii] = (*src).pos[jj];
@@ -382,12 +379,11 @@ static inline void sort_particles(const type::int_idx Ni, const type::int_idx nu
     (*dst).prs[ii] = (*src).prs[jj];
     (*dst).nxt[ii] = (*src).nxt[jj];
     (*dst).idx[ii] = (*src).idx[jj];
-  }
+  });
 
   if (Ni < (num >> 1)) {
     // copy sorted particles
-#pragma omp target teams distribute parallel for simd
-    for (type::int_idx ii = 0U; ii < Ni; ii++) {
+    std::for_each_n(std::execution::par, boost::iterators::counting_iterator<type::int_idx>(0U), Ni, [=](const type::int_idx ii) {
       (*src).pos[ii] = (*dst).pos[ii];
       (*src).vel[ii] = (*dst).vel[ii];
       (*src).acc[ii] = (*dst).acc[ii];
@@ -395,12 +391,11 @@ static inline void sort_particles(const type::int_idx Ni, const type::int_idx nu
       (*src).prs[ii] = (*dst).prs[ii];
       (*src).nxt[ii] = (*dst).nxt[ii];
       (*src).idx[ii] = (*dst).idx[ii];
-    }
+    });
   } else {
     // copy unsorted particles (having longer time step)
     if (Ni < num) {
-#pragma omp target teams distribute parallel for simd
-      for (type::int_idx ii = Ni; ii < num; ii++) {
+      std::for_each_n(std::execution::par, boost::iterators::counting_iterator<type::int_idx>(Ni), num - Ni, [=](const type::int_idx ii) {
         (*dst).pos[ii] = (*src).pos[ii];
         (*dst).vel[ii] = (*src).vel[ii];
         (*dst).acc[ii] = (*src).acc[ii];
@@ -408,7 +403,7 @@ static inline void sort_particles(const type::int_idx Ni, const type::int_idx nu
         (*dst).prs[ii] = (*src).prs[ii];
         (*dst).nxt[ii] = (*src).nxt[ii];
         (*dst).idx[ii] = (*src).idx[ii];
-      }
+      });
     }
 
     // swap SoAs
@@ -434,6 +429,7 @@ static inline auto set_time_step(const type::int_idx num, type::nbody &body, con
   if (time_next < time_sync) {
     // adopt block time step
     const auto next_time_next = time_pres + std::exp2(AS_FP_M(1.0) + std::floor(std::log2(time_next - time_pres)));
+    // TODO: port the below for-loop to GPU
     for (type::int_idx ii = NTHREADS; ii < num; ii += NTHREADS) {
       if (body.nxt[ii] >= next_time_next) {
         Ni = ii;
@@ -443,10 +439,9 @@ static inline auto set_time_step(const type::int_idx num, type::nbody &body, con
   }
 
   // unify the next time within the integrated block
-#pragma omp target teams distribute parallel for simd
-  for (type::int_idx ii = 0U; ii < Ni; ii++) {
+  std::for_each_n(std::execution::par, boost::iterators::counting_iterator<type::int_idx>(0U), num, [=](const type::int_idx ii) {
     body.nxt[ii] = time_next;
-  }
+  });
 
   return (std::make_pair(Ni, time_next));
 }
@@ -459,11 +454,10 @@ static inline auto set_time_step(const type::int_idx num, type::nbody &body, con
 /// @param[in] snapshot_interval current time
 ///
 static inline void reset_particle_time(const type::int_idx num, type::nbody &body, const type::fp_m snapshot_interval) {
-#pragma omp target teams distribute parallel for simd
-  for (type::int_idx ii = 0U; ii < num; ii++) {
+  std::for_each_n(std::execution::par, boost::iterators::counting_iterator<type::int_idx>(0U), num, [=](const type::int_idx ii) {
     body.prs[ii] = AS_FP_M(0.0);
     body.nxt[ii] -= snapshot_interval;
-  }
+  });
 }
 #endif  // BENCHMARK_MODE
 
