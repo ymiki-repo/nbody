@@ -710,21 +710,28 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
   timer.start();
   calc_acc(num, body0.pos, body0.vel, body0.acc, body0.jrk, num, body0.pos, body0.vel, eps2);
   timer.stop();
+  auto elapsed = timer.get_elapsed_wall();
+  int32_t iter = 1;
 
-  const auto elapse_ratio = static_cast<int32_t>(std::exp2(std::ceil(std::log2(cfg.get_minimum_elapsed_time() / timer.get_elapsed_wall()))));
-  const int32_t iter = std::max(elapse_ratio, 1);
-  // remeasure elapsed time if the execution time was too short
-  if (iter > 1) {
+  // increase iteration counts if the measured time is too short
+  const auto minimum_elapsed = cfg.get_minimum_elapsed_time();
+  while (elapsed < minimum_elapsed) {
+    // predict the iteration counts
+    constexpr double booster = 1.25;  ///< additional safety-parameter to reduce rejection rate
+    iter = static_cast<int32_t>(std::exp2(std::ceil(std::log2(static_cast<double>(iter) * booster * minimum_elapsed / elapsed))));
+
+    // re-execute the benchmark
     timer.clear();
     timer.start();
     for (int32_t loop = 0; loop < iter; loop++) {
       calc_acc(num, body0.pos, body0.vel, body0.acc, body0.jrk, num, body0.pos, body0.vel, eps2);
     }
     timer.stop();
+    elapsed = timer.get_elapsed_wall();
   }
 
   // finalize benchmark
-  io::write_log(argv[0], timer.get_elapsed_wall(), iter, num, file.c_str());
+  io::write_log(argv[0], elapsed, iter, num, file.c_str());
 #endif  // BENCHMARK_MODE
 
     // memory deallocation

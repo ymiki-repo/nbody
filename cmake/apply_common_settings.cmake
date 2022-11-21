@@ -63,7 +63,7 @@ target_link_libraries(${PROJECT_NAME}
 # include directories
 target_include_directories(${PROJECT_NAME}
     PRIVATE
-    ${PROJECT_SOURCE_DIR}/..
+    ${PROJECT_SOURCE_DIR}/../..
 )
 target_include_directories(${PROJECT_NAME}
     SYSTEM
