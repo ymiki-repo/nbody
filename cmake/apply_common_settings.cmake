@@ -41,13 +41,13 @@ enable_language(C)
 find_package(HDF5 REQUIRED COMPONENTS C)
 
 # link libraries
-target_link_libraries(${PROJECT_NAME}
-    PRIVATE
+target_link_libraries(${PROJECT_NAME} PRIVATE
     ${Boost_LIBRARIES}
     ${HDF5_LIBRARIES}
 
     # OpenMP
-    $<$<BOOL:${OpenMP_FOUND}>:${OpenMP_CXX_FLAGS}>
+    # $<$<BOOL:${OpenMP_FOUND}>:${OpenMP_CXX_FLAGS}>
+    $<$<AND:$<BOOL:${OpenMP_FOUND}>,$<NOT:$<CXX_COMPILER_ID:NVHPC>>>:${OpenMP_CXX_FLAGS}>
 
     # link tbb for C++ parallel algorithms
     $<$<NOT:$<OR:$<CXX_COMPILER_ID:NVHPC>,$<CXX_COMPILER_ID:IntelLLVM>,$<CXX_COMPILER_ID:Intel>>>:-ltbb>
@@ -61,14 +61,11 @@ target_link_libraries(${PROJECT_NAME}
 )
 
 # include directories
-target_include_directories(${PROJECT_NAME}
-    PRIVATE
+target_include_directories(${PROJECT_NAME} PRIVATE
     ${PROJECT_SOURCE_DIR}/..
     ${PROJECT_SOURCE_DIR}/../..
 )
-target_include_directories(${PROJECT_NAME}
-    SYSTEM
-    PRIVATE
+target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE
     ${Boost_INCLUDE_DIRS}
     ${HDF5_INCLUDE_DIRS}
 )

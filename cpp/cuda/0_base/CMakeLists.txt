@@ -1,5 +1,5 @@
 # compile direct N-body code (base implementation in CUDA C++: no kernel optimization, use of Unified Memory)
-project(base CUDA)
+project(cuda_base CXX CUDA)
 message(STATUS "Generate ${PROJECT_NAME} ...")
 
 # define the executable
@@ -17,9 +17,7 @@ add_executable(${PROJECT_NAME}
 include(${USER_MODULE_PATH}/apply_common_settings.cmake)
 
 # add GPU configuration
-target_compile_options(${PROJECT_NAME}
-    PRIVATE
-
+target_compile_options(${PROJECT_NAME} PRIVATE
     $<$<AND:$<BOOL:${GPU_EXECUTION}>,$<CXX_COMPILER_ID:NVIDIA>>:${SET_TARGET_GPU}>
 )
 # set_property(TARGET ${PROJECT_NAME} PROPERTY CUDA_ARCHITECTURES 80)

@@ -139,7 +139,7 @@ static inline void kick(const type::int_idx num, type::velocity *__restrict vel,
 /// @param[in] vel velocity of N-body particles
 /// @param[in] dt time step
 ///
-static inline void drift(const type::int_idx Ni, type::position *__restrict pos, const type::velocity *const vel, const type::flt_pos dt) {
+static inline void drift(const type::int_idx num, type::position *__restrict pos, const type::velocity *const vel, const type::flt_pos dt) {
   std::for_each_n(std::execution::par, boost::iterators::counting_iterator<type::int_idx>(0U), num, [=](const type::int_idx ii) {
     // initialization
     auto pi = pos[ii];

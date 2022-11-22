@@ -19,7 +19,8 @@ target_compile_options(${PROJECT_NAME}
     $<$<CXX_COMPILER_ID:Intel>:-diag-disable=11071>
 
     # OpenMP
-    $<$<BOOL:${OpenMP_FOUND}>:${OpenMP_CXX_FLAGS}>
+    # $<$<BOOL:${OpenMP_FOUND}>:${OpenMP_CXX_FLAGS}>
+    $<$<AND:$<BOOL:${OpenMP_FOUND}>,$<NOT:$<CXX_COMPILER_ID:NVHPC>>>:${OpenMP_CXX_FLAGS}>
 
     # memory sanitizer
     $<$<BOOL:${USE_SANITIZER_ADDRESS}>:-fsanitize=address>

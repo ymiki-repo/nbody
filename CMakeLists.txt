@@ -164,3 +164,5 @@ add_subdirectory(cpp/base/1_simd)
 # add subdirectories for GPU code
 add_subdirectory(cpp/openmp/0_dist)
 add_subdirectory(cpp/openmp/a_loop)
+add_subdirectory(cpp/openacc/0_managed)
+add_subdirectory(cpp/stdpar)

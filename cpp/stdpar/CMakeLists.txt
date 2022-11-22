@@ -1,5 +1,5 @@
 # compile direct N-body code (implementation using C++17 Parallel Algorithms version)
-project(acc_managed CXX)
+project(stdpar CXX)
 message(STATUS "Generate ${PROJECT_NAME} ...")
 
 # define the executable
@@ -17,9 +17,17 @@ add_executable(${PROJECT_NAME}
 include(${USER_MODULE_PATH}/apply_common_settings.cmake)
 
 # add GPU configuration
-target_compile_options(${PROJECT_NAME}
-    PRIVATE
-
+target_compile_options(${PROJECT_NAME} PRIVATE
     $<$<AND:$<BOOL:${GPU_EXECUTION}>,$<CXX_COMPILER_ID:NVHPC>>:-stdpar=gpu ${SET_TARGET_GPU},managed -Minfo=accel,opt,stdpar>
-    $<$<AND:$<NOT:$<BOOL:${GPU_EXECUTION}>>,$<CXX_COMPILER_ID:NVHPC>>:-mp=multicore>
+    $<$<AND:$<BOOL:${OpenMP_FOUND}>,$<CXX_COMPILER_ID:NVHPC>>:${OpenMP_CXX_FLAGS}=multicore>
 )
+target_link_libraries(${PROJECT_NAME} PRIVATE
+    $<$<AND:$<BOOL:${GPU_EXECUTION}>,$<CXX_COMPILER_ID:NVHPC>>:-stdpar=gpu>
+    $<$<AND:$<BOOL:${OpenMP_FOUND}>,$<CXX_COMPILER_ID:NVHPC>>:${OpenMP_CXX_FLAGS}=multicore>
+)
+
+# # additional recipe for NVIDIA HPC SDK with CMake
+# find_package(CUDA REQUIRED)
+# target_link_libraries(${PROJECT_NAME}
+# PRIVATE
+# ${CUDA_LIBRARIES})
