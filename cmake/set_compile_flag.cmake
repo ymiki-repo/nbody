@@ -38,6 +38,8 @@ target_compile_options(${PROJECT_NAME}
     # specify CPU architecture
     ${SET_TARGET_CPU}
 
-    # flags for NVIDIA GPUs
-    $<$<AND:$<BOOL:${GPU_EXECUTION}>,$<CXX_COMPILER_ID:NVIDIA>>:-Xptxas -v -Xptxas -warn-spills -Xptxas -warn-lmem-usage -lineinfo>
+    # flags for CUDA
+    $<$<COMPILE_LANGUAGE:CUDA>:-Xptxas -v,-warn-spills,-warn-lmem-usage -lineinfo>
+    # NOTE: to call a constexpr __host__ function from a __global__ function (experimental flag)
+    $<$<COMPILE_LANGUAGE:CUDA>:--expt-relaxed-constexpr>
 )

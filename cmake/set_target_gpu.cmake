@@ -1,9 +1,13 @@
 set(TARGET_GPU NVIDIA_CC80 CACHE STRING "target GPU architecture")
+set_property(CACHE TARGET_GPU PROPERTY STRINGS NVIDIA_CC90 NVIDIA_CC80 NVIDIA_CC70 NVIDIA_CC60 NVIDIA_CC86 NVIDIA_CC61)
+
+# extract compute capability for NVIDIA GPUs
+if("${TARGET_GPU}" MATCHES "^NVIDIA_CC")
+    message(STATUS "target is NVIDIA GPU")
+endif("${TARGET_GPU}" MATCHES "^NVIDIA_CC")
 
 # for NVIDIA HPC SDK
 if("${CMAKE_CXX_COMPILER_ID}" MATCHES "NVHPC")
-    set_property(CACHE TARGET_GPU PROPERTY STRINGS NVIDIA_CC90 NVIDIA_CC80 NVIDIA_CC70 NVIDIA_CC60 NVIDIA_CC86 NVIDIA_CC61)
-
     if("${TARGET_GPU}" MATCHES "NVIDIA_CC90")
         set(SET_TARGET_GPU "-gpu=cc90")
     elseif("${TARGET_GPU}" MATCHES "NVIDIA_CC80")
@@ -20,23 +24,59 @@ if("${CMAKE_CXX_COMPILER_ID}" MATCHES "NVHPC")
 endif("${CMAKE_CXX_COMPILER_ID}" MATCHES "NVHPC")
 
 # for CUDA C++
-if("${CMAKE_CXX_COMPILER_ID}" MATCHES "NVIDIA")
-    set_property(CACHE TARGET_GPU PROPERTY STRINGS NVIDIA_CC90 NVIDIA_CC80 NVIDIA_CC70 NVIDIA_CC60 NVIDIA_CC86 NVIDIA_CC61)
-
+# if("${CMAKE_CXX_COMPILER_ID}" MATCHES "NVIDIA")
+#     if("${TARGET_GPU}" MATCHES "NVIDIA_CC90")
+#         set(SET_TARGET_GPU "-gencode arch=compute_90,code=sm_90")
+#     elseif("${TARGET_GPU}" MATCHES "NVIDIA_CC80")
+#         set(SET_TARGET_GPU "-gencode arch=compute_80,code=sm_80")
+#     elseif("${TARGET_GPU}" MATCHES "NVIDIA_CC70")
+#         set(SET_TARGET_GPU "-gencode arch=compute_70,code=sm_70")
+#     elseif("${TARGET_GPU}" MATCHES "NVIDIA_CC60")
+#         set(SET_TARGET_GPU "-gencode arch=compute_60,code=sm_60")
+#     elseif("${TARGET_GPU}" MATCHES "NVIDIA_CC86")
+#         set(SET_TARGET_GPU "-gencode arch=compute_86,code=sm_86")
+#     elseif("${TARGET_GPU}" MATCHES "NVIDIA_CC61")
+#         set(SET_TARGET_GPU "-gencode arch=compute_61,code=sm_61")
+#     endif("${TARGET_GPU}" MATCHES "NVIDIA_CC90")
+# endif("${CMAKE_CXX_COMPILER_ID}" MATCHES "NVIDIA")
+# if("${CMAKE_COMPILE_LANGUAGE}" MATCHES "CUDA")
+#     if("${TARGET_GPU}" MATCHES "NVIDIA_CC90")
+#         set_property(TARGET ${PROJECT_NAME} PROPERTY CUDA_ARCHITECTURES 90)
+#     elseif("${TARGET_GPU}" MATCHES "NVIDIA_CC80")
+#         set_property(TARGET ${PROJECT_NAME} PROPERTY CUDA_ARCHITECTURES 80)
+#     elseif("${TARGET_GPU}" MATCHES "NVIDIA_CC70")
+#         set_property(TARGET ${PROJECT_NAME} PROPERTY CUDA_ARCHITECTURES 70)
+#     elseif("${TARGET_GPU}" MATCHES "NVIDIA_CC60")
+#         set_property(TARGET ${PROJECT_NAME} PROPERTY CUDA_ARCHITECTURES 60)
+#     elseif("${TARGET_GPU}" MATCHES "NVIDIA_CC86")
+#         set_property(TARGET ${PROJECT_NAME} PROPERTY CUDA_ARCHITECTURES 86)
+#     elseif("${TARGET_GPU}" MATCHES "NVIDIA_CC61")
+#         set_property(TARGET ${PROJECT_NAME} PROPERTY CUDA_ARCHITECTURES 61)
+#     endif("${TARGET_GPU}" MATCHES "NVIDIA_CC90")
+# endif("${CMAKE_COMPILE_LANGUAGE}" MATCHES "CUDA")
+# set_property(TARGET ${PROJECT_NAME} APPEND PROPERTY
+#     CUDA_ARCHITECTURES $<$<AND:$<COMPILE_LANGUAGE:CUDA>,$<STREQUAL:${TARGET_GPU},NVIDIA_CC90>>:90>
+#     CUDA_ARCHITECTURES $<$<AND:$<COMPILE_LANGUAGE:CUDA>,$<STREQUAL:${TARGET_GPU},NVIDIA_CC80>>:80>
+#     CUDA_ARCHITECTURES $<$<AND:$<COMPILE_LANGUAGE:CUDA>,$<STREQUAL:${TARGET_GPU},NVIDIA_CC70>>:70>
+#     CUDA_ARCHITECTURES $<$<AND:$<COMPILE_LANGUAGE:CUDA>,$<STREQUAL:${TARGET_GPU},NVIDIA_CC60>>:60>
+#     CUDA_ARCHITECTURES $<$<AND:$<COMPILE_LANGUAGE:CUDA>,$<STREQUAL:${TARGET_GPU},NVIDIA_CC86>>:86>
+#     CUDA_ARCHITECTURES $<$<AND:$<COMPILE_LANGUAGE:CUDA>,$<STREQUAL:${TARGET_GPU},NVIDIA_CC61>>:61>
+# )
+if($<COMPILE_LANGUAGE:CUDA>)
     if("${TARGET_GPU}" MATCHES "NVIDIA_CC90")
-        set(SET_TARGET_GPU "-gencode arch=compute_90,code=sm_90")
+        set(SET_TARGET_GPU "90")
     elseif("${TARGET_GPU}" MATCHES "NVIDIA_CC80")
-        set(SET_TARGET_GPU "-gencode arch=compute_80,code=sm_80")
+        set(SET_TARGET_GPU "80")
     elseif("${TARGET_GPU}" MATCHES "NVIDIA_CC70")
-        set(SET_TARGET_GPU "-gencode arch=compute_70,code=sm_70")
+        set(SET_TARGET_GPU "70")
     elseif("${TARGET_GPU}" MATCHES "NVIDIA_CC60")
-        set(SET_TARGET_GPU "-gencode arch=compute_60,code=sm_60")
+        set(SET_TARGET_GPU "60")
     elseif("${TARGET_GPU}" MATCHES "NVIDIA_CC86")
-        set(SET_TARGET_GPU "-gencode arch=compute_86,code=sm_86")
+        set(SET_TARGET_GPU "86")
     elseif("${TARGET_GPU}" MATCHES "NVIDIA_CC61")
-        set(SET_TARGET_GPU "-gencode arch=compute_61,code=sm_61")
+        set(SET_TARGET_GPU "61")
     endif("${TARGET_GPU}" MATCHES "NVIDIA_CC90")
-endif("${CMAKE_CXX_COMPILER_ID}" MATCHES "NVIDIA")
+endif($<COMPILE_LANGUAGE:CUDA>)
 
 # output the specified GPU
 message(STATUS "TARGET_GPU = ${TARGET_GPU}")

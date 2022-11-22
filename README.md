@@ -109,7 +109,7 @@ $ julia --project -e 'using MPIPreferences; MPIPreferences.use_system_binary()' 
 
   </details>
 
-## modules for Wisteria/BDEC-1 (Aquarius)
+## modules for Wisteria/BDEC-01 (Aquarius)
 
 ```sh
 module purge # for safety
