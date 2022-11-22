@@ -112,5 +112,23 @@ $ julia --project -e 'using MPIPreferences; MPIPreferences.use_system_binary()' 
 ## modules for Wisteria/BDEC-1 (Aquarius)
 
 ```sh
+module purge # for safety
+module load cmake # just for compilation
 module load nvidia # NVIDIA HPC SDK
+module load hdf5
 ```
+
+## Profiling
+
+### NVIDIA GPU向け
+
+* とりあえず nsys を動かしてみる
+
+  ```sh
+  $ nsys profile --stats=true ./a.out # --stats=true をつけておくと，標準エラー出力にも結果（の概要）が出てくる
+  $ nsys-ui & # これはGUIツールなので手元で開く方が良い
+  ```
+
+  1. nsys-ui 上で，nsys によって生成された report?.nsys-rep を開く
+  2. タイムライン左側の"CUDA HW..."というところを右クリックして"Show in Events View"をクリック
+  3. 下側のウィンドウで注目している関数名をクリックすると，当該カーネルの情報が出てくる（スレッド数などの基礎的情報．キャッシュヒット率などの詳細な情報ではない）
