@@ -20,7 +20,7 @@ include(${USER_MODULE_PATH}/apply_common_settings.cmake)
 target_compile_options(${PROJECT_NAME}
     PRIVATE
 
-    $<$<AND:$<BOOL:${OpenMP_FOUND}>,$<BOOL:${GPU_EXECUTION}>,$<CXX_COMPILER_ID:NVHPC>>:-mp=gpu ${SET_TARGET_GPU},managed -Minfo=accel,opt,mp>
+    $<$<AND:$<BOOL:${OpenMP_FOUND}>,$<BOOL:${GPU_EXECUTION}>,$<CXX_COMPILER_ID:NVHPC>>:-mp=gpu -gpu=${NVIDIA_GPU_HARD},managed -Minfo=accel,opt,mp>
     $<$<AND:$<BOOL:${OpenMP_FOUND}>,$<NOT:$<BOOL:${GPU_EXECUTION}>>,$<CXX_COMPILER_ID:NVHPC>>:-mp=multicore>
 )
 target_link_libraries(${PROJECT_NAME}

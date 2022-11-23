@@ -5,9 +5,7 @@ if("${CMAKE_CXX_COMPILER_ID}" MATCHES "NVHPC")
 endif("${CMAKE_CXX_COMPILER_ID}" MATCHES "NVHPC")
 
 # set compilation flags
-target_compile_options(${PROJECT_NAME}
-    PRIVATE
-
+target_compile_options(${PROJECT_NAME} PRIVATE
     # warnings
     $<$<OR:$<CXX_COMPILER_ID:Intel>,$<CXX_COMPILER_ID:GNU>>:-Wall -Wextra -Wshadow -Wcast-qual -Wconversion -Wno-sign-conversion -Wdisabled-optimization -Wuninitialized -Winit-self -Wsign-promo -Wundef -Wunused -Wmissing-declarations>
     $<$<CXX_COMPILER_ID:Intel>:-Wcheck -Wdeprecated -Wformat -Wsign-compare -Wstrict-prototypes -Wtrigraphs -Wwrite-strings -Wunknown-pragmas -Wunused-function -Wunused-variable>

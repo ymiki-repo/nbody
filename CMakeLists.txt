@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.1) # to set CMAKE_CXX_STANDARD
+cmake_policy(SET CMP0104 OLD)# suppress warning CMP0104: (CUDA_ARCHITECTURES is empty)
 
 # enable_testing() # activate CTest
 message(STATUS "CMAKE_GENERATOR is ${CMAKE_GENERATOR}")
@@ -12,10 +13,12 @@ option(BENCHMARK_MODE "On to perform benchmark" OFF)
 option(CALCULATE_POTENTIAL "On to calculate gravitational potential" ON)
 option(HERMITE_SCHEME "On to adopt 4th-order Hermite scheme" OFF)
 option(GPU_EXECUTION "On to compile code for GPU" ON)
+option(USE_CUDA "On to use CUDA C++ for NVIDIA GPU" OFF)
 message(STATUS "BENCHMARK_MODE is ${BENCHMARK_MODE}")
 message(STATUS "CALCULATE_POTENTIAL is ${CALCULATE_POTENTIAL}")
 message(STATUS "HERMITE_SCHEME is ${HERMITE_SCHEME}")
 message(STATUS "GPU_EXECUTION is ${GPU_EXECUTION}")
+message(STATUS "USE_CUDA is ${USE_CUDA}")
 
 # enforce Release as build type in benchmark mode
 if(BENCHMARK_MODE)
@@ -166,6 +169,8 @@ add_subdirectory(cpp/openmp/0_dist)
 add_subdirectory(cpp/openmp/a_loop)
 add_subdirectory(cpp/openacc/0_managed)
 add_subdirectory(cpp/stdpar)
-if(GPU_EXECUTION)
+
+# add subdirectories for CUDA C++
+if(GPU_EXECUTION AND USE_CUDA)
     add_subdirectory(cpp/cuda/0_base)
-endif(GPU_EXECUTION)
+endif(GPU_EXECUTION AND USE_CUDA)
