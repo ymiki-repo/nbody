@@ -19,6 +19,9 @@ find_package(CUDA REQUIRED)
 include(${USER_MODULE_PATH}/apply_common_settings.cmake)
 
 # add GPU configuration for NVIDIA GPU
+# target_compile_options(${PROJECT_NAME} PRIVATE
+#     --compiler-bindir=${CMAKE_CXX_COMPILER}
+# )
 if(${NVIDIA_GPU_HARD} EQUAL ${NVIDIA_GPU_SOFT})
     set_property(TARGET ${PROJECT_NAME} PROPERTY CUDA_ARCHITECTURES ${NVIDIA_GPU_HARD})
 else(${NVIDIA_GPU_HARD} EQUAL ${NVIDIA_GPU_SOFT})

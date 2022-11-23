@@ -54,7 +54,7 @@ endif(MODULECMD_CONFIG)
 # set C++ compiler
 if(NOT DEFINED ENV{CXX})
     # find CXX compiler
-    set(TMP_LIST "nvc++" "icpx" "clang++" "g++")
+    set(TMP_LIST "nvc++" "g++" "clang++" "icpx")
 
     foreach(CANDIDATE IN LISTS TMP_LIST)
         find_program(BASE_CXX ${CANDIDATE})
@@ -69,7 +69,7 @@ endif(NOT DEFINED ENV{CXX})
 # set C compiler
 if(NOT DEFINED ENV{CC})
     # find C compiler
-    set(TMP_LIST "nvc" "icx" "clang" "gcc")
+    set(TMP_LIST "nvc" "gcc" "clang" "icx")
 
     foreach(CANDIDATE IN LISTS TMP_LIST)
         find_program(BASE_CC ${CANDIDATE})
