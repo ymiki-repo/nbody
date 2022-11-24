@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.1) # to set CMAKE_CXX_STANDARD
-cmake_policy(SET CMP0104 OLD)# suppress warning CMP0104: (CUDA_ARCHITECTURES is empty)
+cmake_policy(SET CMP0104 OLD) # suppress warning CMP0104: (CUDA_ARCHITECTURES is empty)
 
 # enable_testing() # activate CTest
 message(STATUS "CMAKE_GENERATOR is ${CMAKE_GENERATOR}")
@@ -160,17 +160,13 @@ endif(${FP_M} GREATER ${FP_H})
 
 message(STATUS "FP_H = ${FP_H}")
 
-# add subdirectories for CPU code
-add_subdirectory(cpp/base/0_base)
-add_subdirectory(cpp/base/1_simd)
-
-# add subdirectories for GPU code
-add_subdirectory(cpp/openmp/0_dist)
-add_subdirectory(cpp/openmp/a_loop)
-add_subdirectory(cpp/openacc/0_managed)
-add_subdirectory(cpp/stdpar)
+# add subdirectories
+add_subdirectory(cpp/base) # baseline implementations targeting CPU
+add_subdirectory(cpp/openmp) # implementation using OpenMP target directives
+add_subdirectory(cpp/openacc) # implementation using OpenACC directives
+add_subdirectory(cpp/stdpar) # implementation using C++17 Parallel Algorithms
 
 # add subdirectories for CUDA C++
 if(GPU_EXECUTION AND USE_CUDA)
-    add_subdirectory(cpp/cuda/0_base)
+    add_subdirectory(cpp/cuda)
 endif(GPU_EXECUTION AND USE_CUDA)
