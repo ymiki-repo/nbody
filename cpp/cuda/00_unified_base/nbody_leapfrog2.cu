@@ -217,6 +217,41 @@ static inline void drift(const type::int_idx num, type::position *__restrict pos
   drift_device<<<BLOCKSIZE(num, NTHREADS), NTHREADS>>>(pos, vel, dt);
 }
 
+///
+/// @brief integrate velocity in half-step backward on accelerator device
+///
+/// @param[in] vel_src velocity of N-body particles
+/// @param[in] acc acceleration of N-body particles
+/// @param[out] vel velocity of N-body particles
+/// @param[in] dt time step
+///
+__global__ void kick_backward_half_device(const type::velocity *const vel_src, const type::acceleration *const acc, type::velocity *__restrict vel, const type::flt_vel dt) {
+  const auto dt_2 = AS_FLT_VEL(0.5) * dt;
+  const type::int_idx ii = blockIdx.x * blockDim.x + threadIdx.x;
+
+  // initialization
+  auto vi = vel_src[ii];
+  const auto ai = acc[ii];
+
+  vi.x -= dt_2 * CAST2VEL(ai.x);
+  vi.y -= dt_2 * CAST2VEL(ai.y);
+  vi.z -= dt_2 * CAST2VEL(ai.z);
+
+  vel[ii] = vi;
+}
+
+///
+/// @brief integrate velocity in half-step backward
+///
+/// @param[in] num number of N-body particles
+/// @param[in] vel_src velocity of N-body particles
+/// @param[in] acc acceleration of N-body particles
+/// @param[out] vel velocity of N-body particles
+/// @param[in] dt time step
+///
+static inline void kick_backward_half(const type::int_idx num, const type::velocity *const vel_src, const type::acceleration *const acc, type::velocity *__restrict vel, const type::flt_vel dt) {
+  kick_backward_half_device<<<BLOCKSIZE(num, NTHREADS), NTHREADS>>>(vel_src, acc, vel, dt);
+}
 #endif  // BENCHMARK_MODE
 
 ///
@@ -228,14 +263,14 @@ static inline void drift(const type::int_idx num, type::position *__restrict pos
 /// @param[out] acc acceleration of N-body particles
 /// @param[in] num number of N-body particles
 ///
-static inline void allocate_Nbody_particles(type::position **pos, type::velocity **vel, std::unique_ptr<type::velocity[]> &vel_tmp, type::acceleration **acc, const type::int_idx num) {
+static inline void allocate_Nbody_particles(type::position **pos, type::velocity **vel, type::velocity **vel_tmp, type::acceleration **acc, const type::int_idx num) {
   auto size = static_cast<size_t>(num);
   if ((num % NTHREADS) != 0U) {
     size += static_cast<size_t>(NTHREADS - (num % NTHREADS));
   }
   cudaMallocManaged((void **)pos, size * sizeof(type::position));
   cudaMallocManaged((void **)vel, size * sizeof(type::velocity));
-  vel_tmp = std::make_unique<type::velocity[]>(size);
+  cudaMallocManaged((void **)vel_tmp, size * sizeof(type::velocity));
   cudaMallocManaged((void **)acc, size * sizeof(type::acceleration));
 
   // zero-clear arrays (for safety of massless particles)
@@ -246,7 +281,7 @@ static inline void allocate_Nbody_particles(type::position **pos, type::velocity
   for (size_t ii = 0U; ii < size; ii++) {
     (*pos)[ii] = p_zero;
     (*vel)[ii] = v_zero;
-    vel_tmp[ii] = v_zero;
+    (*vel_tmp)[ii] = v_zero;
     (*acc)[ii] = a_zero;
   }
 }
@@ -259,10 +294,10 @@ static inline void allocate_Nbody_particles(type::position **pos, type::velocity
 /// @param[out] vel_tmp tentative array for velocity of N-body particles
 /// @param[out] acc acceleration of N-body particles
 ///
-static inline void release_Nbody_particles(type::position *pos, type::velocity *vel, std::unique_ptr<type::velocity[]> &vel_tmp, type::acceleration *acc) {
+static inline void release_Nbody_particles(type::position *pos, type::velocity *vel, type::velocity *vel_tmp, type::acceleration *acc) {
   cudaFree(pos);
   cudaFree(vel);
-  vel_tmp.reset();
+  cudaFree(vel_tmp);
   cudaFree(acc);
 }
 
@@ -329,10 +364,9 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
 
     // memory allocation
     alignas(MEMORY_ALIGNMENT) type::position *pos;
-    alignas(MEMORY_ALIGNMENT) type::velocity *vel;
-    alignas(MEMORY_ALIGNMENT) std::unique_ptr<type::velocity[]> vel_tmp;
+    alignas(MEMORY_ALIGNMENT) type::velocity *vel, *vel_tmp;
     alignas(MEMORY_ALIGNMENT) type::acceleration *acc;
-    allocate_Nbody_particles(&pos, &vel, vel_tmp, &acc, num);
+    allocate_Nbody_particles(&pos, &vel, &vel_tmp, &acc, num);
 
     // generate initial-condition
     init::set_uniform_sphere(num, pos, vel, M_tot, rad, virial, CAST2VEL(newton));
@@ -347,7 +381,7 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
 #endif  // CALCULATE_POTENTIAL
     );
     auto error = conservatives();
-    io::write_snapshot(num, pos, vel_tmp.get(), acc, dt, vel, file.c_str(), present, time, error);
+    io::write_snapshot(num, pos, vel, acc, file.c_str(), present, time, error);
 
     // half-step integration for velocity
     kick(num, vel, acc, AS_FP_M(0.5) * dt);
@@ -376,7 +410,8 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
         previous = present;
         time_from_snapshot = AS_FP_M(0.0);
         time += snapshot_interval;
-        io::write_snapshot(num, pos, vel_tmp.get(), acc, dt, vel, file.c_str(), present, time, error);
+        kick_backward_half(num, vel, acc, vel_tmp, dt);
+        io::write_snapshot(num, pos, vel_tmp, acc, file.c_str(), present, time, error);
       }
     }
 #else   // BENCHMARK_MODE
