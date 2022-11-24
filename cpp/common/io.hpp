@@ -57,35 +57,18 @@ constexpr double FLOPS_PER_INTERACTION = 22.0;  ///< assumed number of floating-
 ///
 /// @param[in] num number of N-body particles
 /// @param[in] pos position of N-body particles
-/// @param[in] vel_src velocity of N-body particles (dt/2 ahead in leapfrog integrator)
-/// @param vel velocity of N-body particles (tentative array)
+/// @param[in] vel velocity of N-body particles
 /// @param[in] acc acceleration of N-body particles
 /// @param[in] filename name of the simulation
 /// @param[in] snp_id snapshot ID
 /// @param[in] time current time in the simulation
-/// @param[in] dt time step in the simulation
 /// @param[in,out] error error of conservatives in the simulation
 ///
 static inline void write_snapshot(const type::int_idx num, type::position *__restrict pos, type::velocity *__restrict vel, type::acceleration *__restrict acc,
 #ifdef USE_HERMITE
                                   type::jerk *__restrict jrk, const type::int_idx *idx,
-#else   // USE_HERMITE
-                                  const type::fp_m dt, const type::velocity *const vel_src,
 #endif  // USE_HERMITE
                                   const char *const filename, const int32_t snp_id, const type::fp_m time, conservatives &error) {
-#ifndef USE_HERMITE
-  // backward integration for velocity
-  const auto dt_2 = AS_FLT_VEL(0.5) * CAST2VEL(dt);
-  for (type::int_idx ii = 0U; ii < num; ii++) {
-    const auto ai = acc[ii];
-    auto vi = vel_src[ii];
-    vi.x -= dt_2 * CAST2VEL(ai.x);
-    vi.y -= dt_2 * CAST2VEL(ai.y);
-    vi.z -= dt_2 * CAST2VEL(ai.z);
-    vel[ii] = vi;
-  }
-#endif  // USE_HERMITE
-
   // open the target file
   std::stringstream name;
   name.str("");

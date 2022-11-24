@@ -154,6 +154,30 @@ static inline void drift(const type::int_idx Ni, type::position *__restrict pos,
   }
 }
 
+///
+/// @brief integrate velocity in half-step backward
+///
+/// @param[in] num number of N-body particles
+/// @param[in] vel_src velocity of N-body particles
+/// @param[in] acc acceleration of N-body particles
+/// @param[out] vel velocity of N-body particles
+/// @param[in] dt time step
+///
+static inline void kick_backward_half(const type::int_idx num, const type::velocity *const vel_src, const type::acceleration *const acc, type::velocity *__restrict vel, const type::flt_vel dt) {
+  const auto dt_2 = AS_FLT_VEL(0.5) * dt;
+#pragma omp target teams loop
+  for (type::int_idx ii = 0U; ii < num; ii++) {
+    // initialization
+    auto vi = vel_src[ii];
+    const auto ai = acc[ii];
+
+    vi.x -= dt_2 * CAST2VEL(ai.x);
+    vi.y -= dt_2 * CAST2VEL(ai.y);
+    vi.z -= dt_2 * CAST2VEL(ai.z);
+
+    vel[ii] = vi;
+  }
+}
 #endif  // BENCHMARK_MODE
 
 ///
@@ -265,7 +289,7 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
 #endif  // CALCULATE_POTENTIAL
     );
     auto error = conservatives();
-    io::write_snapshot(num, pos.get(), vel_tmp.get(), acc.get(), dt, vel.get(), file.c_str(), present, time, error);
+    io::write_snapshot(num, pos.get(), vel.get(), acc.get(), file.c_str(), present, time, error);
 
     // half-step integration for velocity
     kick(num, vel.get(), acc.get(), AS_FP_M(0.5) * dt);
@@ -294,7 +318,8 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
         previous = present;
         time_from_snapshot = AS_FP_M(0.0);
         time += snapshot_interval;
-        io::write_snapshot(num, pos.get(), vel_tmp.get(), acc.get(), dt, vel.get(), file.c_str(), present, time, error);
+        kick_backward_half(num, vel.get(), acc.get(), vel_tmp.get(), dt);
+        io::write_snapshot(num, pos.get(), vel_tmp.get(), acc.get(), file.c_str(), present, time, error);
       }
     }
 #else   // BENCHMARK_MODE
