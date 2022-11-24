@@ -15,6 +15,7 @@
         "iomanip": "cpp",
         "limits": "cpp",
         "ostream": "cpp",
-        "string": "cpp"
+        "string": "cpp",
+        "ratio": "cpp"
     }
 }

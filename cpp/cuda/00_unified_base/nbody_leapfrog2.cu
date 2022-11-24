@@ -380,6 +380,7 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
              pos, eps_inv
 #endif  // CALCULATE_POTENTIAL
     );
+    cudaDeviceSynchronize();  // complete the calculation on GPU before reading results from CPU
     auto error = conservatives();
     io::write_snapshot(num, pos, vel, acc, file.c_str(), present, time, error);
 
@@ -411,14 +412,17 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
         time_from_snapshot = AS_FP_M(0.0);
         time += snapshot_interval;
         kick_backward_half(num, vel, acc, vel_tmp, dt);
+        cudaDeviceSynchronize();  // complete the calculation on GPU before reading results from CPU
         io::write_snapshot(num, pos, vel_tmp, acc, file.c_str(), present, time, error);
       }
     }
 #else   // BENCHMARK_MODE
   // launch benchmark
   auto timer = util::timer();
+  cudaDeviceSynchronize();  // complete the calculation on GPU before reading results from CPU
   timer.start();
   calc_acc(num, pos, acc, num, pos, eps2);
+  cudaDeviceSynchronize();  // complete the calculation on GPU before reading results from CPU
   timer.stop();
   auto elapsed = timer.get_elapsed_wall();
   int32_t iter = 1;
@@ -432,10 +436,12 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
 
     // re-execute the benchmark
     timer.clear();
+    cudaDeviceSynchronize();  // complete the calculation on GPU before reading results from CPU
     timer.start();
     for (int32_t loop = 0; loop < iter; loop++) {
       calc_acc(num, pos, acc, num, pos, eps2);
     }
+    cudaDeviceSynchronize();  // complete the calculation on GPU before reading results from CPU
     timer.stop();
     elapsed = timer.get_elapsed_wall();
   }

@@ -443,8 +443,10 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
 #else   // BENCHMARK_MODE
   // launch benchmark
   auto timer = util::timer();
+  cudaDeviceSynchronize();  // complete the calculation on GPU before reading results from CPU
   timer.start();
   calc_acc(num, pos_dev, acc_dev, num, pos_dev, eps2);
+  cudaDeviceSynchronize();  // complete the calculation on GPU before reading results from CPU
   timer.stop();
   auto elapsed = timer.get_elapsed_wall();
   int32_t iter = 1;
@@ -458,10 +460,12 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
 
     // re-execute the benchmark
     timer.clear();
+    cudaDeviceSynchronize();  // complete the calculation on GPU before reading results from CPU
     timer.start();
     for (int32_t loop = 0; loop < iter; loop++) {
       calc_acc(num, pos_dev, acc_dev, num, pos_dev, eps2);
     }
+    cudaDeviceSynchronize();  // complete the calculation on GPU before reading results from CPU
     timer.stop();
     elapsed = timer.get_elapsed_wall();
   }
