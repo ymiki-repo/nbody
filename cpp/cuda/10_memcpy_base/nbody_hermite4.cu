@@ -120,6 +120,16 @@ static inline void calc_acc(
   calc_acc_device<<<BLOCKSIZE(Ni, NTHREADS), NTHREADS>>>(ipos, ivel, iacc, ijrk, Nj, jpos, jvel, eps2);
 }
 
+///
+/// @brief correct particle position and velocity on accelerator device
+///
+/// @param[out] tag tag to sort SoA
+///
+__global__ void reset_tag_device(type::int_idx *__restrict tag) {
+  const type::int_idx ii = blockIdx.x * blockDim.x + threadIdx.x;
+  tag[ii] = ii;
+}
+
 #ifndef BENCHMARK_MODE
 ///
 /// @brief finalize calculation of gravitational acceleration on accelerator device
@@ -172,7 +182,7 @@ static inline void trim_acc(const type::int_idx Ni, type::acceleration *__restri
                             const type::position *const pos, const type::flt_acc eps_inv
 #endif  // CALCULATE_POTENTIAL
 ) {
-  trim_acc_device<<<BLOCKSIZE(Ni, NTHREADS), NTHREADS>>>(Ni, acc, jerk
+  trim_acc_device<<<BLOCKSIZE(Ni, NTHREADS), NTHREADS>>>(acc, jerk
 #ifdef CALCULATE_POTENTIAL
                                                          ,
                                                          pos, eps_inv
@@ -460,16 +470,6 @@ static inline void correct(
 }
 
 ///
-/// @brief correct particle position and velocity on accelerator device
-///
-/// @param[out] tag tag to sort SoA
-///
-__global__ void reset_tag_device(type::int_idx *__restrict tag) {
-  const type::int_idx ii = blockIdx.x * blockDim.x + threadIdx.x;
-  tag[ii] = ii;
-}
-
-///
 /// @brief sort N-body particles on accelerator device
 ///
 /// @param[in] src_pos position of N-body particles (source array)
@@ -582,6 +582,11 @@ __global__ void set_next_time_device(type::fp_m *__restrict next, const type::fp
   next[ii] = time_next;
 }
 
+__global__ void set_dummy_time_device(type::fp_m *__restrict next) {
+  const type::int_idx ii = blockIdx.x * blockDim.x + threadIdx.x;
+  next[ii] = static_cast<type::fp_m>(ii);
+}
+
 ///
 /// @brief set block time step
 ///
@@ -593,7 +598,23 @@ __global__ void set_next_time_device(type::fp_m *__restrict next, const type::fp
 /// @return number of i-particles and time after the orbit integration
 ///
 static inline auto set_time_step(const type::int_idx num, type::nbody &body, const type::fp_m time_pres, const type::fp_m time_sync) {
+  // NOTE: porting below for-loop to GPU and then memcpy time_next and Ni from device to host will be faster (and simple); below is an example using cudaMemcpy2D()
+  // copy nxt[0], nxt[NTHREADS], nxt[2 * NTHREADS], nxt[3 * NTHREADS], ...
   // FIXME: port below code to GPU
+  // NOTE: tentative implementation from here
+  set_dummy_time_device<<<BLOCKSIZE(num, NTHREADS), NTHREADS>>>(body.nxt);
+  type::fp_m *time_host;
+  cudaMallocHost((void **)&time_host, num * sizeof(type::fp_m));
+  for (type::int_idx ii = 0; ii < num; ii++) {
+    time_host[ii] = -AS_FP_M(1.0);
+  }
+  cudaMemcpy2D(time_host, sizeof(type::fp_m), body.nxt, sizeof(type::fp_m) * NTHREADS, sizeof(type::fp_m), BLOCKSIZE(num, NTHREADS), cudaMemcpyDeviceToHost);
+  for (type::int_idx ii = 0; ii < num; ii++) {
+    std::cout << ii << "," << time_host[ii] << std::endl;
+  }
+  cudaFreeHost(time_host);
+  std::exit(EXIT_SUCCESS);
+  // NOTE: tentative implementation to here
   //   __host__​cudaError_t cudaMemcpy2D ( void* dst, size_t dpitch, const void* src, size_t spitch, size_t width, size_t height, cudaMemcpyKind kind )
   // Copies data between host and device.
   // Parameters
@@ -757,25 +778,25 @@ static inline void allocate_Nbody_particles(
   cudaMalloc(temp_storage, temp_storage_size);
 
   // assign SoA
-  body_hst.pos = pos_hst.get();
-  body_hst.vel = vel_hst.get();
-  body_hst.acc = acc_hst.get();
-  body_hst.jrk = jrk_hst.get();
-  body_hst.idx = idx_hst.get();
-  body0_dev.pos = pos0_dev.get();
-  body0_dev.vel = vel0_dev.get();
-  body0_dev.acc = acc0_dev.get();
-  body0_dev.jrk = jrk0_dev.get();
-  body0_dev.prs = prs0_dev.get();
-  body0_dev.nxt = nxt0_dev.get();
-  body0_dev.idx = idx0_dev.get();
-  body1_dev.pos = pos1_dev.get();
-  body1_dev.vel = vel1_dev.get();
-  body1_dev.acc = acc1_dev.get();
-  body1_dev.jrk = jrk1_dev.get();
-  body1_dev.prs = prs1_dev.get();
-  body1_dev.nxt = nxt1_dev.get();
-  body1_dev.idx = idx1_dev.get();
+  body_hst.pos = *pos_hst;
+  body_hst.vel = *vel_hst;
+  body_hst.acc = *acc_hst;
+  body_hst.jrk = *jrk_hst;
+  body_hst.idx = *idx_hst;
+  body0_dev.pos = *pos0_dev;
+  body0_dev.vel = *vel0_dev;
+  body0_dev.acc = *acc0_dev;
+  body0_dev.jrk = *jrk0_dev;
+  body0_dev.prs = *prs0_dev;
+  body0_dev.nxt = *nxt0_dev;
+  body0_dev.idx = *idx0_dev;
+  body1_dev.pos = *pos1_dev;
+  body1_dev.vel = *vel1_dev;
+  body1_dev.acc = *acc1_dev;
+  body1_dev.jrk = *jrk1_dev;
+  body1_dev.prs = *prs1_dev;
+  body1_dev.nxt = *nxt1_dev;
+  body1_dev.idx = *idx1_dev;
 }
 
 ///
@@ -832,14 +853,20 @@ static inline void release_Nbody_particles(
 /// @brief configure the target GPU device if necessary
 ///
 static inline void configure_gpu() {
-  // FIXME: update the name of device functions
   // this sample code does not utilize the shared memory, so maximize the capacity of the L1 cache (0% for shared memory)
   cudaFuncSetAttribute(calc_acc_device, cudaFuncAttributePreferredSharedMemoryCarveout, 0);
+  cudaFuncSetAttribute(reset_tag_device, cudaFuncAttributePreferredSharedMemoryCarveout, 0);
 #ifndef BENCHMARK_MODE
   cudaFuncSetAttribute(trim_acc_device, cudaFuncAttributePreferredSharedMemoryCarveout, 0);
-  cudaFuncSetAttribute(kick_device, cudaFuncAttributePreferredSharedMemoryCarveout, 0);
-  cudaFuncSetAttribute(drift_device, cudaFuncAttributePreferredSharedMemoryCarveout, 0);
+  cudaFuncSetAttribute(guess_initial_dt_device, cudaFuncAttributePreferredSharedMemoryCarveout, 0);
+  cudaFuncSetAttribute(predict_device, cudaFuncAttributePreferredSharedMemoryCarveout, 0);
+  cudaFuncSetAttribute(correct_device, cudaFuncAttributePreferredSharedMemoryCarveout, 0);
+  cudaFuncSetAttribute(sort_particles_device, cudaFuncAttributePreferredSharedMemoryCarveout, 0);
+  cudaFuncSetAttribute(copy_particles_device, cudaFuncAttributePreferredSharedMemoryCarveout, 0);
+  cudaFuncSetAttribute(set_next_time_device, cudaFuncAttributePreferredSharedMemoryCarveout, 0);
+  cudaFuncSetAttribute(reset_particle_time_device, cudaFuncAttributePreferredSharedMemoryCarveout, 0);
 #endif  // BENCHMARK_MODE
+  cudaFuncSetAttribute(clear_particles_device, cudaFuncAttributePreferredSharedMemoryCarveout, 0);
 }
 
 auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *const *const argv) -> int32_t {
@@ -881,6 +908,9 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
   util::hdf5::commit_datatype_vec4();
 #endif  // BENCHMARK_MODE
 
+  // configure accelerator device
+  configure_gpu();
+
 #ifdef BENCHMARK_MODE
   const auto num_logbin = std::log2(num_max / num_min) / static_cast<double>(num_bin - 1);
   for (int32_t ii = 0; ii < num_bin; ii++) {
@@ -892,19 +922,19 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
     alignas(MEMORY_ALIGNMENT) type::velocity *vel, *vel0_dev, *vel1_dev;
     alignas(MEMORY_ALIGNMENT) type::acceleration *acc, *acc0_dev, *acc1_dev;
     alignas(MEMORY_ALIGNMENT) type::jerk *jerk, *jerk0_dev, *jerk1_dev;
-    alignas(MEMORY_ALIGNMENT) type::fp_m *pres, *pres0_dev, *pres1_dev;
-    alignas(MEMORY_ALIGNMENT) type::fp_m *next, *next0_dev, *next1_dev;
+    alignas(MEMORY_ALIGNMENT) type::fp_m *pres0_dev, *pres1_dev;
+    alignas(MEMORY_ALIGNMENT) type::fp_m *next0_dev, *next1_dev;
     alignas(MEMORY_ALIGNMENT) type::int_idx *id, *id0_dev, *id1_dev;
-    alignas(MEMORY_ALIGNMENT) type::int_idx *tag0_dev *tag1_dev;
+    alignas(MEMORY_ALIGNMENT) type::int_idx *tag0_dev, *tag1_dev;
     alignas(MEMORY_ALIGNMENT) void *temp_storage;
-    size_t temp_storage_size;
+    size_t temp_storage_size = 0U;
     auto body = type::nbody();
     auto body0_dev = type::nbody();
     auto body1_dev = type::nbody();
     allocate_Nbody_particles(
-        &body, &pos, &vel, &acc, &jerk, &id,
-        &body0_dev, &pos0_dev, &vel0_dev, &acc0_dev, &jerk0_dev, &pres0_dev, &next0_dev, &id0_dev,
-        &body1_dev, &pos1_dev, &vel1_dev, &acc1_dev, &jerk1_dev, &pres1_dev, &next1_dev, &id1_dev,
+        body, &pos, &vel, &acc, &jerk, &id,
+        body0_dev, &pos0_dev, &vel0_dev, &acc0_dev, &jerk0_dev, &pres0_dev, &next0_dev, &id0_dev,
+        body1_dev, &pos1_dev, &vel1_dev, &acc1_dev, &jerk1_dev, &pres1_dev, &next1_dev, &id1_dev,
         &tag0_dev, &tag1_dev, &temp_storage, temp_storage_size, num);
 
     // generate initial-condition
@@ -931,13 +961,13 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
     auto error = conservatives();
     cudaMemcpy(body.acc, body0_dev.acc, num * sizeof(type::acceleration), cudaMemcpyDeviceToHost);
     cudaMemcpy(body.jrk, body0_dev.jrk, num * sizeof(type::jerk), cudaMemcpyDeviceToHost);
-    io::write_snapshot(num, body0.pos, body0.vel, body0.acc, body0.jrk, body0.idx, file.c_str(), present, time, error);
+    io::write_snapshot(num, body.pos, body.vel, body.acc, body.jrk, body.idx, file.c_str(), present, time, error);
     guess_initial_dt(num, body0_dev.pos, body0_dev.vel, body0_dev.acc, body0_dev.jrk, num, body0_dev.pos, body0_dev.vel, body0_dev.acc, body0_dev.jrk, eps2, eta, body0_dev.nxt);
 
     while (present < snp_fin) {
       step++;
 
-      sort_particles(Ni, num, tag_dev, &body0_dev, &body1_dev);
+      sort_particles(Ni, num, tag0_dev, tag1_dev, &body0_dev, &body1_dev, temp_storage, temp_storage_size);
       std::tie(Ni, time_from_snapshot) = set_time_step(num, body0_dev, time_from_snapshot, snapshot_interval);
       if (time_from_snapshot >= snapshot_interval) {
         present++;

@@ -19,6 +19,17 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
   * CMake (>= 3.1)
   * Boost
   * HDF5
+  * <details><summary>How to load modules on Wisteria/BDEC-01 (Aquarius)</summary>
+
+    ```sh
+    module purge # for safety
+    module load cmake # just for compilation
+    module load nvidia # NVIDIA HPC SDK
+    module load hdf5
+    ```
+
+  </details>
+
 * Optional packages:
   * Julia (for visualization)
   * VisIt (for visualization)
@@ -108,15 +119,6 @@ $ julia --project -e 'using MPIPreferences; MPIPreferences.use_system_binary()' 
   ```
 
   </details>
-
-## modules for Wisteria/BDEC-01 (Aquarius)
-
-```sh
-module purge # for safety
-module load cmake # just for compilation
-module load nvidia # NVIDIA HPC SDK
-module load hdf5
-```
 
 ## Profiling
 
