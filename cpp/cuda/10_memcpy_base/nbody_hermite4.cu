@@ -460,60 +460,108 @@ static inline void correct(
 }
 
 ///
+/// @brief correct particle position and velocity on accelerator device
+///
+/// @param[out] tag tag to sort SoA
+///
+__global__ void reset_tag_device(type::int_idx *__restrict tag) {
+  const type::int_idx ii = blockIdx.x * blockDim.x + threadIdx.x;
+  tag[ii] = ii;
+}
+
+///
+/// @brief sort N-body particles on accelerator device
+///
+/// @param[in] src_pos position of N-body particles (source array)
+/// @param[in] src_vel velocity of N-body particles (source array)
+/// @param[in] src_acc acceleration of N-body particles (source array)
+/// @param[in] src_jrk jerk of N-body particles (source array)
+/// @param[in] src_prs present time of N-body particles (source array)
+/// @param[in] src_idx index of N-body particles (source array)
+/// @param[out] dst_pos position of N-body particles (destination array)
+/// @param[out] dst_vel velocity of N-body particles (destination array)
+/// @param[out] dst_acc acceleration of N-body particles (destination array)
+/// @param[out] dst_jrk jerk of N-body particles (destination array)
+/// @param[out] dst_prs present time of N-body particles (destination array)
+/// @param[out] dst_idx index of N-body particles (destination array)
+/// @param[in] tag tentative array to sort N-body particles
+///
+__global__ void sort_particles_device(
+    const type::position *const src_pos, const type::velocity *const src_vel, const type::acceleration *const src_acc, const type::jerk *const src_jrk, const type::fp_m *const src_prs, const type::int_idx *const src_idx,
+    type::position *__restrict dst_pos, type::velocity *__restrict dst_vel, type::acceleration *__restrict dst_acc, type::jerk *__restrict dst_jrk, type::fp_m *__restrict dst_prs, type::int_idx *__restrict dst_idx,
+    const type::int_idx *const tag) {
+  const type::int_idx ii = blockIdx.x * blockDim.x + threadIdx.x;
+  const auto jj = tag[ii];
+  dst_pos[ii] = src_pos[jj];
+  dst_vel[ii] = src_vel[jj];
+  dst_acc[ii] = src_acc[jj];
+  dst_jrk[ii] = src_jrk[jj];
+  dst_prs[ii] = src_prs[jj];
+  // dst_nxt[ii] = src_nxt[jj];
+  dst_idx[ii] = src_idx[jj];
+}
+
+///
+/// @brief copy N-body particles on accelerator device
+///
+/// @param[in] src_pos position of N-body particles (source array)
+/// @param[in] src_vel velocity of N-body particles (source array)
+/// @param[in] src_acc acceleration of N-body particles (source array)
+/// @param[in] src_jrk jerk of N-body particles (source array)
+/// @param[in] src_prs present time of N-body particles (source array)
+/// @param[in] src_nxt next time of N-body particles (source array)
+/// @param[in] src_idx index of N-body particles (source array)
+/// @param[out] dst_pos position of N-body particles (destination array)
+/// @param[out] dst_vel velocity of N-body particles (destination array)
+/// @param[out] dst_acc acceleration of N-body particles (destination array)
+/// @param[out] dst_jrk jerk of N-body particles (destination array)
+/// @param[out] dst_prs present time of N-body particles (destination array)
+/// @param[out] dst_nxt next time of N-body particles (destination array)
+/// @param[out] dst_idx index of N-body particles (destination array)
+/// @param[in] head head index of N-body particles to be copied
+///
+__global__ void copy_particles_device(
+    const type::position *const src_pos, const type::velocity *const src_vel, const type::acceleration *const src_acc, const type::jerk *const src_jrk, const type::fp_m *const src_prs, const type::fp_m *const src_nxt, const type::int_idx *const src_idx,
+    type::position *__restrict dst_pos, type::velocity *__restrict dst_vel, type::acceleration *__restrict dst_acc, type::jerk *__restrict dst_jrk, type::fp_m *__restrict dst_prs, type::fp_m *__restrict dst_nxt, type::int_idx *__restrict dst_idx,
+    const type::int_idx head = 0U) {
+  const type::int_idx ii = blockIdx.x * blockDim.x + threadIdx.x + head;
+  dst_pos[ii] = src_pos[ii];
+  dst_vel[ii] = src_vel[ii];
+  dst_acc[ii] = src_acc[ii];
+  dst_jrk[ii] = src_jrk[ii];
+  dst_prs[ii] = src_prs[ii];
+  dst_nxt[ii] = src_nxt[ii];
+  dst_idx[ii] = src_idx[ii];
+}
+
+///
 /// @brief sort N-body particles
 ///
 /// @param[in] Ni number of i-particles
 /// @param[in] num total number of N-body particles
-/// @param tag tentative array to sort N-body particles
+/// @param[out] tag0_dev tentative array to sort N-body particles
+/// @param[out] tag1_dev tentative array to sort N-body particles
 /// @param[in] iacc acceleration of i-particles
 /// @param[in,out] src input N-body particles (to be sorted)
 /// @param[in] dst tentative SoA of N-body particles
+/// @param[in] temp_storage tentative storage for CUB
+/// @param[in] temp_storage_size size of tentative storage for CUB
 ///
-static inline void sort_particles(const type::int_idx Ni, const type::int_idx num, type::int_idx *__restrict tag, type::nbody *__restrict src, type::nbody *__restrict dst) {
+static inline void sort_particles(const type::int_idx Ni, const type::int_idx num, type::int_idx *__restrict tag0_dev, type::int_idx *__restrict tag1_dev, type::nbody *__restrict src, type::nbody *__restrict dst, void *temp_storage, size_t &temp_storage_size) {
   // sort particle time
-  std::iota(tag, tag + Ni, 0U);
-  std::sort(tag, tag + Ni, [src](auto ii, auto jj) { return ((*src).nxt[ii] < (*src).nxt[jj]); });
-  cub::DeviceRadixSort::SortPairs(dev.temp_storage, dev.temp_storage_size, pre.key, dev.key, pre.idx, dev.idx, num);
+  reset_tag_device<<<BLOCKSIZE(Ni, NTHREADS), NTHREADS>>>(tag0_dev);
+  cub::DeviceRadixSort::SortPairs(temp_storage, temp_storage_size, (*src).nxt, (*dst).nxt, tag0_dev, tag1_dev, num);
 
   // sort N-body particles
-#pragma omp parallel for
-  for (type::int_idx ii = 0U; ii < Ni; ii++) {
-    const auto jj = tag[ii];
-
-    (*dst).pos[ii] = (*src).pos[jj];
-    (*dst).vel[ii] = (*src).vel[jj];
-    (*dst).acc[ii] = (*src).acc[jj];
-    (*dst).jrk[ii] = (*src).jrk[jj];
-    (*dst).prs[ii] = (*src).prs[jj];
-    (*dst).nxt[ii] = (*src).nxt[jj];
-    (*dst).idx[ii] = (*src).idx[jj];
-  }
+  sort_particles_device<<<BLOCKSIZE(Ni, NTHREADS), NTHREADS>>>((*src).pos, (*src).vel, (*src).acc, (*src).jrk, (*src).prs, (*src).idx, (*dst).pos, (*dst).vel, (*dst).acc, (*dst).jrk, (*dst).prs, (*dst).idx, tag1_dev);
 
   if (Ni < (num >> 1)) {
     // copy sorted particles
-#pragma omp parallel for
-    for (type::int_idx ii = 0U; ii < Ni; ii++) {
-      (*src).pos[ii] = (*dst).pos[ii];
-      (*src).vel[ii] = (*dst).vel[ii];
-      (*src).acc[ii] = (*dst).acc[ii];
-      (*src).jrk[ii] = (*dst).jrk[ii];
-      (*src).prs[ii] = (*dst).prs[ii];
-      (*src).nxt[ii] = (*dst).nxt[ii];
-      (*src).idx[ii] = (*dst).idx[ii];
-    }
+    copy_particles_device<<<BLOCKSIZE(Ni, NTHREADS), NTHREADS>>>((*dst).pos, (*dst).vel, (*dst).acc, (*dst).jrk, (*dst).prs, (*dst).nxt, (*dst).idx, (*src).pos, (*src).vel, (*src).acc, (*src).jrk, (*src).prs, (*src).nxt, (*src).idx);
   } else {
     // copy unsorted particles (having longer time step)
     if (Ni < num) {
-#pragma omp parallel for
-      for (type::int_idx ii = Ni; ii < num; ii++) {
-        (*dst).pos[ii] = (*src).pos[ii];
-        (*dst).vel[ii] = (*src).vel[ii];
-        (*dst).acc[ii] = (*src).acc[ii];
-        (*dst).jrk[ii] = (*src).jrk[ii];
-        (*dst).prs[ii] = (*src).prs[ii];
-        (*dst).nxt[ii] = (*src).nxt[ii];
-        (*dst).idx[ii] = (*src).idx[ii];
-      }
+      copy_particles_device<<<BLOCKSIZE(num - Ni, NTHREADS), NTHREADS>>>((*src).pos, (*src).vel, (*src).acc, (*src).jrk, (*src).prs, (*src).nxt, (*src).idx, (*dst).pos, (*dst).vel, (*dst).acc, (*dst).jrk, (*dst).prs, (*dst).nxt, (*dst).idx, Ni);
     }
 
     // swap SoAs
@@ -521,6 +569,17 @@ static inline void sort_particles(const type::int_idx Ni, const type::int_idx nu
     *src = *dst;
     *dst = _tmp;
   }
+}
+
+///
+/// @brief set next time of N-body particles on accelerator device
+///
+/// @param[out] next next time of N-body particles
+/// @param[in] time_next updated next time
+///
+__global__ void set_next_time_device(type::fp_m *__restrict next, const type::fp_m time_next) {
+  const type::int_idx ii = blockIdx.x * blockDim.x + threadIdx.x;
+  next[ii] = time_next;
 }
 
 ///
@@ -534,12 +593,30 @@ static inline void sort_particles(const type::int_idx Ni, const type::int_idx nu
 /// @return number of i-particles and time after the orbit integration
 ///
 static inline auto set_time_step(const type::int_idx num, type::nbody &body, const type::fp_m time_pres, const type::fp_m time_sync) {
+  // FIXME: port below code to GPU
+  //   __host__​cudaError_t cudaMemcpy2D ( void* dst, size_t dpitch, const void* src, size_t spitch, size_t width, size_t height, cudaMemcpyKind kind )
+  // Copies data between host and device.
+  // Parameters
+  // dst
+  // - Destination memory address
+  // dpitch
+  // - Pitch of destination memory
+  // src
+  // - Source memory address
+  // spitch
+  // - Pitch of source memory
+  // width
+  // - Width of matrix transfer (columns in bytes)
+  // height
+  // - Height of matrix transfer (rows)
+  // kind
+  // - Type of transfer
   auto Ni = num;
   const auto time_next = std::min(time_sync, time_pres + std::exp2(std::floor(std::log2(body.nxt[0] - time_pres))));
   if (time_next < time_sync) {
     // adopt block time step
     const auto next_time_next = time_pres + std::exp2(AS_FP_M(1.0) + std::floor(std::log2(time_next - time_pres)));
-    for (type::int_idx ii = type::N_simd_fp_l; ii < num; ii += type::N_simd_fp_l) {
+    for (type::int_idx ii = NTHREADS; ii < num; ii += NTHREADS) {
       if (body.nxt[ii] >= next_time_next) {
         Ni = ii;
         break;
@@ -547,13 +624,22 @@ static inline auto set_time_step(const type::int_idx num, type::nbody &body, con
     }
   }
 
-  // unify the next time within the integrated block
-#pragma omp parallel for
-  for (type::int_idx ii = 0U; ii < Ni; ii++) {
-    body.nxt[ii] = time_next;
-  }
+  set_next_time_device<<<BLOCKSIZE(Ni, NTHREADS), NTHREADS>>>(body.nxt, time_next);
 
   return (std::make_pair(Ni, time_next));
+}
+
+///
+/// @brief reset particle time on accelerator device
+///
+/// @param[out] pres present time of N-body particles
+/// @param[in,out] next next time of N-body particles
+/// @param[in] snapshot_interval current time
+///
+__global__ void reset_particle_time_device(type::fp_m *__restrict pres, type::fp_m *__restrict next, const type::fp_m snapshot_interval) {
+  const type::int_idx ii = blockIdx.x * blockDim.x + threadIdx.x;
+  pres[ii] = AS_FP_M(0.0);
+  next[ii] -= snapshot_interval;
 }
 
 ///
@@ -564,13 +650,26 @@ static inline auto set_time_step(const type::int_idx num, type::nbody &body, con
 /// @param[in] snapshot_interval current time
 ///
 static inline void reset_particle_time(const type::int_idx num, type::nbody &body, const type::fp_m snapshot_interval) {
-#pragma omp parallel for
-  for (type::int_idx ii = 0U; ii < num; ii++) {
-    body.prs[ii] = AS_FP_M(0.0);
-    body.nxt[ii] -= snapshot_interval;
-  }
+  reset_particle_time_device<<<BLOCKSIZE(num, NTHREADS), NTHREADS>>>(body.prs, body.nxt, snapshot_interval);
 }
 #endif  // BENCHMARK_MODE
+
+__global__ void clear_particles_device(type::position *__restrict pos, type::velocity *__restrict vel, type::acceleration *__restrict acc, type::jerk *__restrict jrk, type::fp_m *__restrict prs, type::fp_m *__restrict nxt, type::int_idx *__restrict idx) {
+  const type::int_idx ii = blockIdx.x * blockDim.x + threadIdx.x;
+
+  constexpr type::position p_zero = {AS_FLT_POS(0.0), AS_FLT_POS(0.0), AS_FLT_POS(0.0), AS_FLT_POS(0.0)};
+  constexpr type::velocity v_zero = {AS_FLT_VEL(0.0), AS_FLT_VEL(0.0), AS_FLT_VEL(0.0)};
+  constexpr type::acceleration a_zero = {AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0)};
+  constexpr type::jerk j_zero = {AS_FLT_JRK(0.0), AS_FLT_JRK(0.0), AS_FLT_JRK(0.0)};
+
+  pos[ii] = p_zero;
+  vel[ii] = v_zero;
+  acc[ii] = a_zero;
+  jrk[ii] = j_zero;
+  prs[ii] = AS_FP_M(0.0);
+  nxt[ii] = std::numeric_limits<type::fp_m>::max();
+  idx[ii] = std::numeric_limits<type::int_idx>::max();
+}
 
 ///
 /// @brief allocate memory for N-body particles
@@ -597,14 +696,16 @@ static inline void reset_particle_time(const type::int_idx num, type::nbody &bod
 /// @param[out] prs1_dev present time of N-body particles (device memory)
 /// @param[out] nxt1_dev next time of N-body particles (device memory)
 /// @param[out] idx1_dev ID of N-body particles (device memory)
-/// @param[out] tag_dev tag to sort N-body particles (device memory)
+/// @param[out] tag0_dev tag to sort N-body particles (device memory)
+/// @param[out] tag0_dev tag to sort N-body particles (device memory)
+/// @param[out] temp_storage temporary storage for sorting on accelerator device (device memory)
 /// @param[in] num number of N-body particles
 ///
 static inline void allocate_Nbody_particles(
     type::nbody &body_hst, type::position **pos_hst, type::velocity **vel_hst, type::acceleration **acc_hst, type::jerk **jrk_hst, type::int_idx **idx_hst,
     type::nbody &body0_dev, type::position **pos0_dev, type::velocity **vel0_dev, type::acceleration **acc0_dev, type::jerk **jrk0_dev, type::fp_m **prs0_dev, type::fp_m **nxt0_dev, type::int_idx **idx0_dev,
     type::nbody &body1_dev, type::position **pos1_dev, type::velocity **vel1_dev, type::acceleration **acc1_dev, type::jerk **jrk1_dev, type::fp_m **prs1_dev, type::fp_m **nxt1_dev, type::int_idx **idx1_dev,
-    type::int_idx **tag_dev, const type::int_idx num) {
+    type::int_idx **tag0_dev, type::int_idx **tag1_dev, void **temp_storage, size_t &temp_storage_size, const type::int_idx num) {
   auto size = static_cast<size_t>(num);
   if ((num % NTHREADS) != 0U) {
     size += static_cast<size_t>(NTHREADS - (num % NTHREADS));
@@ -628,7 +729,6 @@ static inline void allocate_Nbody_particles(
   cudaMalloc((void **)prs1_dev, size * sizeof(type::fp_m));
   cudaMalloc((void **)nxt1_dev, size * sizeof(type::fp_m));
   cudaMalloc((void **)idx1_dev, size * sizeof(type::int_idx));
-  cudaMalloc((void **)tag_dev, size * sizeof(type::int_idx));
 
   // initialize arrays (for safety of massless particles and first touch)
   constexpr type::position p_zero = {AS_FLT_POS(0.0), AS_FLT_POS(0.0), AS_FLT_POS(0.0), AS_FLT_POS(0.0)};
@@ -637,14 +737,24 @@ static inline void allocate_Nbody_particles(
   constexpr type::jerk j_zero = {AS_FLT_JRK(0.0), AS_FLT_JRK(0.0), AS_FLT_JRK(0.0)};
 #pragma omp parallel for
   for (size_t ii = 0U; ii < size; ii++) {
-    pos_hst[ii] = p_zero;
-    vel_hst[ii] = v_zero;
-    acc_hst[ii] = a_zero;
-    jrk_hst[ii] = j_zero;
-    idx_hst[ii] = std::numeric_limits<type::int_idx>::max();
+    (*pos_hst)[ii] = p_zero;
+    (*vel_hst)[ii] = v_zero;
+    (*acc_hst)[ii] = a_zero;
+    (*jrk_hst)[ii] = j_zero;
+    (*idx_hst)[ii] = std::numeric_limits<type::int_idx>::max();
   }
+  clear_particles_device<<<BLOCKSIZE(size, NTHREADS), NTHREADS>>>(*pos0_dev, *vel0_dev, *acc0_dev, *jrk0_dev, *prs0_dev, *nxt0_dev, *idx0_dev);
+  clear_particles_device<<<BLOCKSIZE(size, NTHREADS), NTHREADS>>>(*pos1_dev, *vel1_dev, *acc1_dev, *jrk1_dev, *prs1_dev, *nxt1_dev, *idx1_dev);
 
-  // TODO: initialize arrays on accelerator device (for safety of massless particles)
+  // memory allocation for sorting
+  cudaMalloc((void **)tag0_dev, size * sizeof(type::int_idx));
+  cudaMalloc((void **)tag1_dev, size * sizeof(type::int_idx));
+  temp_storage_size = 0U;
+  *temp_storage = NULL;
+  reset_tag_device<<<BLOCKSIZE(size, NTHREADS), NTHREADS>>>(*tag0_dev);
+  reset_tag_device<<<BLOCKSIZE(size, NTHREADS), NTHREADS>>>(*tag1_dev);
+  cub::DeviceRadixSort::SortPairs(*temp_storage, temp_storage_size, *nxt0_dev, *nxt1_dev, *tag0_dev, *tag1_dev, size);
+  cudaMalloc(temp_storage, temp_storage_size);
 
   // assign SoA
   body_hst.pos = pos_hst.get();
@@ -666,14 +776,6 @@ static inline void allocate_Nbody_particles(
   body1_dev.prs = prs1_dev.get();
   body1_dev.nxt = nxt1_dev.get();
   body1_dev.idx = idx1_dev.get();
-
-  // memory allocation for CUB (void **temp_storage)
-  size_t temp_storage_size = 0;
-  pre->idx = *idx_pre;
-  pre->key = *key_pre;
-  *temp_storage = NULL;
-  cub::DeviceRadixSort::SortPairs(*temp_storage, temp_storage_size, pre->key, dev->key, pre->idx, dev->idx, num);
-  mycudaMalloc(temp_storage, temp_storage_size);
 }
 
 ///
@@ -693,13 +795,15 @@ static inline void allocate_Nbody_particles(
 /// @param[out] prs1 present time of N-body particles
 /// @param[out] nxt1 next time of N-body particles
 /// @param[out] idx1 ID of N-body particles
-/// @param[out] tag tag to sort N-body particles
+/// @param[out] tag0 tag to sort N-body particles
+/// @param[out] tag1 tag to sort N-body particles
+/// @param[out] temp_storage temporary storage for sorting on accelerator device
 ///
 static inline void release_Nbody_particles(
     type::position *pos_hst, type::velocity *vel_hst, type::acceleration *acc_hst, type::jerk *jrk_hst, type::int_idx *idx_hst,
     type::position *pos0_dev, type::velocity *vel0_dev, type::acceleration *acc0_dev, type::jerk *jrk0_dev, type::fp_m *prs0_dev, type::fp_m *nxt0_dev, type::int_idx *idx0_dev,
     type::position *pos1_dev, type::velocity *vel1_dev, type::acceleration *acc1_dev, type::jerk *jrk1_dev, type::fp_m *prs1_dev, type::fp_m *nxt1_dev, type::int_idx *idx1_dev,
-    type::int_idx *tag_dev) {
+    type::int_idx *tag0_dev, type::int_idx *tag1_dev, void *temp_storage) {
   cudaFreeHost(pos_hst);
   cudaFreeHost(vel_hst);
   cudaFreeHost(acc_hst);
@@ -719,7 +823,9 @@ static inline void release_Nbody_particles(
   cudaFree(prs1_dev);
   cudaFree(nxt1_dev);
   cudaFree(idx1_dev);
-  cudaFree(tag_dev);
+  cudaFree(tag0_dev);
+  cudaFree(tag1_dev);
+  cudaFree(temp_storage);
 }
 
 ///
@@ -789,7 +895,9 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
     alignas(MEMORY_ALIGNMENT) type::fp_m *pres, *pres0_dev, *pres1_dev;
     alignas(MEMORY_ALIGNMENT) type::fp_m *next, *next0_dev, *next1_dev;
     alignas(MEMORY_ALIGNMENT) type::int_idx *id, *id0_dev, *id1_dev;
-    alignas(MEMORY_ALIGNMENT) type::int_idx *tag_dev;
+    alignas(MEMORY_ALIGNMENT) type::int_idx *tag0_dev *tag1_dev;
+    alignas(MEMORY_ALIGNMENT) void *temp_storage;
+    size_t temp_storage_size;
     auto body = type::nbody();
     auto body0_dev = type::nbody();
     auto body1_dev = type::nbody();
@@ -797,7 +905,7 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
         &body, &pos, &vel, &acc, &jerk, &id,
         &body0_dev, &pos0_dev, &vel0_dev, &acc0_dev, &jerk0_dev, &pres0_dev, &next0_dev, &id0_dev,
         &body1_dev, &pos1_dev, &vel1_dev, &acc1_dev, &jerk1_dev, &pres1_dev, &next1_dev, &id1_dev,
-        &tag_dev, num);
+        &tag0_dev, &tag1_dev, &temp_storage, temp_storage_size, num);
 
     // generate initial-condition
     init::set_uniform_sphere(num, body.pos, body.vel, M_tot, rad, virial, CAST2VEL(newton));
@@ -902,7 +1010,7 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
         pos, vel, acc, jerk, id,
         pos0_dev, vel0_dev, acc0_dev, jerk0_dev, pres0_dev, next0_dev, id0_dev,
         pos1_dev, vel1_dev, acc1_dev, jerk1_dev, pres1_dev, next1_dev, id1_dev,
-        tag_dev);
+        tag0_dev, tag1_dev, temp_storage);
 
 #ifdef BENCHMARK_MODE
   }
