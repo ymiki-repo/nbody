@@ -162,9 +162,13 @@ message(STATUS "FP_H = ${FP_H}")
 
 # add subdirectories
 add_subdirectory(cpp/base) # baseline implementations targeting CPU
-add_subdirectory(cpp/openmp) # implementation using OpenMP target directives
-add_subdirectory(cpp/openacc) # implementation using OpenACC directives
-add_subdirectory(cpp/stdpar) # implementation using C++17 Parallel Algorithms
+
+# add subdirectories for directive-based implementation
+if(NOT USE_CUDA)
+    add_subdirectory(cpp/openmp) # implementation using OpenMP target directives
+    add_subdirectory(cpp/openacc) # implementation using OpenACC directives
+    add_subdirectory(cpp/stdpar) # implementation using C++17 Parallel Algorithms
+endif(NOT USE_CUDA)
 
 # add subdirectories for CUDA C++
 if(GPU_EXECUTION AND USE_CUDA)
