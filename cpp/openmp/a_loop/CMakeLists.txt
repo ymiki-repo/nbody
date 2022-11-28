@@ -18,7 +18,7 @@ include(${USER_MODULE_PATH}/apply_common_settings.cmake)
 
 # add GPU configuration
 target_compile_options(${PROJECT_NAME} PRIVATE
-    $<$<AND:$<BOOL:${OpenMP_FOUND}>,$<BOOL:${GPU_EXECUTION}>,$<CXX_COMPILER_ID:NVHPC>>:-mp=gpu -gpu=${NVIDIA_GPU_HARD},managed -Minfo=accel,opt,mp>
+    $<$<AND:$<BOOL:${OpenMP_FOUND}>,$<BOOL:${GPU_EXECUTION}>,$<CXX_COMPILER_ID:NVHPC>>:-mp=gpu -gpu=cc${NVIDIA_GPU_HARD},managed -Minfo=accel,opt,mp>
     $<$<AND:$<BOOL:${OpenMP_FOUND}>,$<NOT:$<BOOL:${GPU_EXECUTION}>>,$<CXX_COMPILER_ID:NVHPC>>:-mp=multicore>
 )
 target_link_libraries(${PROJECT_NAME} PRIVATE
