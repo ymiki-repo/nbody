@@ -550,7 +550,7 @@ __global__ void copy_particles_device(
 static inline void sort_particles(const type::int_idx Ni, const type::int_idx num, type::int_idx *__restrict tag0_dev, type::int_idx *__restrict tag1_dev, type::nbody *__restrict src, type::nbody *__restrict dst, void *temp_storage, size_t &temp_storage_size) {
   // sort particle time
   reset_tag_device<<<BLOCKSIZE(Ni, NTHREADS), NTHREADS>>>(tag0_dev);
-  cub::DeviceRadixSort::SortPairs(temp_storage, temp_storage_size, (*src).nxt, (*dst).nxt, tag0_dev, tag1_dev, num);
+  cub::DeviceRadixSort::SortPairs(temp_storage, temp_storage_size, (*src).nxt, (*dst).nxt, tag0_dev, tag1_dev, Ni);
 
   // sort N-body particles
   sort_particles_device<<<BLOCKSIZE(Ni, NTHREADS), NTHREADS>>>((*src).pos, (*src).vel, (*src).acc, (*src).jrk, (*src).prs, (*src).idx, (*dst).pos, (*dst).vel, (*dst).acc, (*dst).jrk, (*dst).prs, (*dst).idx, tag1_dev);
@@ -582,11 +582,6 @@ __global__ void set_next_time_device(type::fp_m *__restrict next, const type::fp
   next[ii] = time_next;
 }
 
-// __global__ void set_dummy_time_device(type::fp_m *__restrict next) {
-//   const type::int_idx ii = blockIdx.x * blockDim.x + threadIdx.x;
-//   next[ii] = static_cast<type::fp_m>(ii);
-// }
-
 ///
 /// @brief set block time step
 ///
@@ -601,21 +596,8 @@ __global__ void set_next_time_device(type::fp_m *__restrict next, const type::fp
 static inline auto set_time_step(const type::int_idx num, type::nbody &body_dev, const type::fp_m time_pres, const type::fp_m time_sync, type::nbody &body) {
   // NOTE: porting below for-loop to GPU and then memcpy time_next and Ni from device to host will be faster (and simple); below is an example using cudaMemcpy2D()
   // copy nxt[0], nxt[NTHREADS], nxt[2 * NTHREADS], nxt[3 * NTHREADS], ...
-  // FIXME: port below code to GPU
-  // NOTE: tentative implementation from here
-  //   set_dummy_time_device<<<BLOCKSIZE(num, NTHREADS), NTHREADS>>>(body.nxt);
-  //   type::fp_m *time_host;
-  //   cudaMallocHost((void **)&time_host, num * sizeof(type::fp_m));
-  //   for (type::int_idx ii = 0; ii < num; ii++) {
-  //     time_host[ii] = -AS_FP_M(1.0);
-  //   }
   const type::int_idx N_grp = BLOCKSIZE(num, NTHREADS);
   cudaMemcpy2D(body.nxt, sizeof(type::fp_m), body_dev.nxt, sizeof(type::fp_m) * NTHREADS, sizeof(type::fp_m), N_grp, cudaMemcpyDeviceToHost);
-  //   for (type::int_idx ii = 0; ii < num; ii++) {
-  //     std::cout << ii << "," << time_host[ii] << std::endl;
-  //   }
-  //   cudaFreeHost(time_host);
-  //   std::exit(EXIT_SUCCESS);
   auto Ni = num;
   const auto time_next = std::min(time_sync, time_pres + std::exp2(std::floor(std::log2(body.nxt[0] - time_pres))));
   if (time_next < time_sync) {
