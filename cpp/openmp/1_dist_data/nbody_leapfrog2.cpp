@@ -280,23 +280,33 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
     alignas(MEMORY_ALIGNMENT) std::unique_ptr<type::acceleration[]> acc;
     allocate_Nbody_particles(pos, vel, vel_tmp, acc, num);
 
+    // workaround for data directives
+    auto pos_ptr = pos.get();
+    auto vel_ptr = vel.get();
+    auto vel_tmp_ptr = vel_tmp.get();
+    auto acc_ptr = acc.get();
+#pragma omp target enter data map(alloc \
+                                  : pos_ptr [0:num], vel_ptr [0:num], vel_tmp_ptr [0:num], acc_ptr [0:num])
+
     // generate initial-condition
-    init::set_uniform_sphere(num, pos.get(), vel.get(), M_tot, rad, virial, CAST2VEL(newton));
+    init::set_uniform_sphere(num, pos_ptr, vel_ptr, M_tot, rad, virial, CAST2VEL(newton));
+#pragma omp target update to(pos_ptr [0:num], vel_ptr [0:num])
 
 #ifndef BENCHMARK_MODE
     // write the first snapshot
-    calc_acc(num, pos.get(), acc.get(), num, pos.get(), eps2);
-    trim_acc(num, acc.get()
+    calc_acc(num, pos_ptr, acc_ptr, num, pos_ptr, eps2);
+    trim_acc(num, acc_ptr
 #ifdef CALCULATE_POTENTIAL
-                      ,
-             pos.get(), eps_inv
+             ,
+             pos_ptr, eps_inv
 #endif  // CALCULATE_POTENTIAL
     );
+#pragma omp target update from(acc_ptr [0:num])
     auto error = conservatives();
-    io::write_snapshot(num, pos.get(), vel.get(), acc.get(), file.c_str(), present, time, error);
+    io::write_snapshot(num, pos_ptr, vel_ptr, acc_ptr, file.c_str(), present, time, error);
 
     // half-step integration for velocity
-    kick(num, vel.get(), acc.get(), AS_FP_M(0.5) * dt);
+    kick(num, vel_ptr, acc_ptr, AS_FP_M(0.5) * dt);
 
     while (present < snp_fin) {
       step++;
@@ -307,30 +317,31 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
       DEBUG_PRINT(std::cout, "t = " << time + time_from_snapshot << ", step = " << step)
 
       // orbit integration (2nd-order leapfrog scheme)
-      drift(num, pos.get(), vel.get(), dt);
-      calc_acc(num, pos.get(), acc.get(), num, pos.get(), eps2);
-      trim_acc(num, acc.get()
+      drift(num, pos_ptr, vel_ptr, dt);
+      calc_acc(num, pos_ptr, acc_ptr, num, pos_ptr, eps2);
+      trim_acc(num, acc_ptr
 #ifdef CALCULATE_POTENTIAL
-                        ,
-               pos.get(), eps_inv
+               ,
+               pos_ptr, eps_inv
 #endif  // CALCULATE_POTENTIAL
       );
-      kick(num, vel.get(), acc.get(), dt);
+      kick(num, vel_ptr, acc_ptr, dt);
 
       // write snapshot
       if (present > previous) {
         previous = present;
         time_from_snapshot = AS_FP_M(0.0);
         time += snapshot_interval;
-        kick_backward_half(num, vel.get(), acc.get(), vel_tmp.get(), dt);
-        io::write_snapshot(num, pos.get(), vel_tmp.get(), acc.get(), file.c_str(), present, time, error);
+        kick_backward_half(num, vel_ptr, acc_ptr, vel_tmp_ptr, dt);
+#pragma omp target update from(pos_ptr [0:num], vel_tmp_ptr [0:num], acc_ptr [0:num])
+        io::write_snapshot(num, pos_ptr, vel_tmp_ptr, acc_ptr, file.c_str(), present, time, error);
       }
     }
 #else   // BENCHMARK_MODE
   // launch benchmark
   auto timer = util::timer();
   timer.start();
-  calc_acc(num, pos.get(), acc.get(), num, pos.get(), eps2);
+  calc_acc(num, pos_ptr, acc_ptr, num, pos_ptr, eps2);
   timer.stop();
   auto elapsed = timer.get_elapsed_wall();
   int32_t iter = 1;
@@ -346,7 +357,7 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
     timer.clear();
     timer.start();
     for (int32_t loop = 0; loop < iter; loop++) {
-      calc_acc(num, pos.get(), acc.get(), num, pos.get(), eps2);
+      calc_acc(num, pos_ptr, acc_ptr, num, pos_ptr, eps2);
     }
     timer.stop();
     elapsed = timer.get_elapsed_wall();
@@ -357,6 +368,8 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
 #endif  // BENCHMARK_MODE
 
     // memory deallocation
+#pragma omp target exit data map(delete \
+                                 : pos_ptr [0:num], vel_ptr [0:num], vel_tmp_ptr [0:num], acc_ptr [0:num])
     release_Nbody_particles(pos, vel, vel_tmp, acc);
 
 #ifdef BENCHMARK_MODE

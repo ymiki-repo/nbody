@@ -143,9 +143,9 @@ static inline void kick(const type::int_idx num, type::velocity *__restrict vel,
 /// @param[in] vel velocity of N-body particles
 /// @param[in] dt time step
 ///
-static inline void drift(const type::int_idx Ni, type::position *__restrict pos, const type::velocity *const vel, const type::flt_pos dt) {
+static inline void drift(const type::int_idx num, type::position *__restrict pos, const type::velocity *const vel, const type::flt_pos dt) {
 #pragma omp parallel for simd
-  for (type::int_idx ii = 0U; ii < Ni; ii++) {
+  for (type::int_idx ii = 0U; ii < num; ii++) {
     // initialization
     auto pi = pos[ii];
     const auto vi = vel[ii];

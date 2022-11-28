@@ -78,9 +78,15 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
   * -DFP_L=[32(default) 64 128] : Number of bits for floating-point numbers (low-precision)
   * -DFP_M=[32 64(default) 128] : Number of bits for floating-point numbers (medium-precision)
   * -DFP_H=[64(default) 128] : Number of bits for floating-point numbers (high-precision)
-  * -DHERMITE_SCHEME=[ON OFF(default)] : On to adopt 4th-order Hermite scheme instead of 2nd-order leapfrog scheme
+  <!-- 実装中* -DHERMITE_SCHEME=[ON OFF(default)] : On to adopt 4th-order Hermite scheme instead of 2nd-order leapfrog scheme -->
   * -DSIMD_BITS=[256 512(default) 1024] : SIMD width in units of bit
   * -DTARGET_CPU=[depends on your C++ compiler; selecting by ccmake is encouraged] : target CPU architecture
+
+* Compilation
+```sh
+ninja # if ninja-build is installed
+make  # if ninja-build is missing
+```
 
 ## How to run
 
@@ -89,8 +95,8 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
   ```sh
   pjsub sh/wisteria/run_nvidia.sh # run an $N$-body simulation in default configuration, base compiler is nvhpc
   pjsub sh/wisteria/run_cuda.sh # run an $N$-body simulation in default configuration, base compiler is cuda
-  pjsub --vset EXEC=bin/acc_managed,OPTION="--num=16384 --file-acc" sh/wisteria/run_nvidia.sh # run an $N$-body simulation with option (binary is bin/acc_managed, $N = 16384$, FILENAME is acc), base compiler is nvidia
-  pjsub --vset EXEC=bin/cuda_memcpy_base,OPTION="--num=16384 --file=cuda" sh/wisteria/run_cuda.sh # run an $N$-body simulation with option (binary is bin/cuda_memcpy_base, $N = 16384$, FILENAME is acc), base compiler is cuda
+  pjsub -x EXEC=bin/acc_managed,OPTION="--num=16384 --file=acc" sh/wisteria/run_nvidia.sh # run an $N$-body simulation with option (binary is bin/acc_managed, $N = 16384$, FILENAME is acc), base compiler is nvidia
+  pjsub -x EXEC=bin/cuda_memcpy_base,OPTION="--num=16384 --file=cuda_memcpy" sh/wisteria/run_cuda.sh # run an $N$-body simulation with option (binary is bin/cuda_memcpy_base, $N = 16384$, FILENAME is cuda_memcpy), base compiler is cuda
   ```
 
   </details>
@@ -110,7 +116,7 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
 * output files are dat/FILENAME_snp*.h5 and dat/FILENAME_snp*.xdmf when BENCHMARK_NODE is OFF
 * log file is log/FILENAME_run.csv
 
-## How to check results
+<!-- ## How to check results
 
 ```sh
 julia jl/plot/error.jl                                                # show time evolution of conservatives and the virial ratio
@@ -123,7 +129,18 @@ visit &                                                               # open dat
 ## How to install Julia packages
 
 ```sh
+pjsub --interact -L rscgrp=share-interactive -g gz00
 module purge
+module load julia
+export JULIA_DEPOT_PATH=/work/gz00/$USER/.julia
+module load gcc
+module load ompi
+julia jl/package.jl
+julia --project -e 'using MPIPreferences; MPIPreferences.use_system_binary()' # configure to use system-provided MPI
+```
+
+```sh
+module load miniconda
 module load anyenv miniconda3 # prepare Python environments
 module load openmpi           # prepare MPI to be used
 module load texlive           # prepare LaTeX environments
@@ -146,7 +163,7 @@ julia --project -e 'using MPIPreferences; MPIPreferences.use_system_binary()' # 
   > exit()
   ```
 
-  </details>
+  </details> -->
 
 ## Profiling
 
