@@ -12,7 +12,7 @@ fi
 
 # load modules
 module purge
-module load nvhpc
+module load nvidia
 module load hdf5
 
 # set environmental variables for OpenMP

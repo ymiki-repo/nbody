@@ -87,10 +87,10 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
 * <details><summary>Wisteria/BDEC-01 (Fujitsu TCS)</summary>
 
   ```sh
-  pjsub sh/wisteria/run_nvhpc.sh # run an $N$-body simulation in default configuration, base compiler is nvhpc
+  pjsub sh/wisteria/run_nvidia.sh # run an $N$-body simulation in default configuration, base compiler is nvhpc
   pjsub sh/wisteria/run_cuda.sh # run an $N$-body simulation in default configuration, base compiler is cuda
-  pjsub --vset EXEC=bin/acc_managed,OPTION="--num=16384 --file-acc" sh/wisteria/run_nvhpc.sh # run an $N$-body simulation with option (binary is bin/acc_managed, $N = 16384$), base compiler is nvhpc
-  pjsub --vset EXEC=bin/cuda_memcpy_base,OPTION="--num=16384 --file=cuda" sh/wisteria/run_cuda.sh # run an $N$-body simulation with option (binary is bin/cuda_memcpy_base, $N = 16384$), base compiler is cuda
+  pjsub --vset EXEC=bin/acc_managed,OPTION="--num=16384 --file-acc" sh/wisteria/run_nvidia.sh # run an $N$-body simulation with option (binary is bin/acc_managed, $N = 16384$, FILENAME is acc), base compiler is nvidia
+  pjsub --vset EXEC=bin/cuda_memcpy_base,OPTION="--num=16384 --file=cuda" sh/wisteria/run_cuda.sh # run an $N$-body simulation with option (binary is bin/cuda_memcpy_base, $N = 16384$, FILENAME is acc), base compiler is cuda
   ```
 
   </details>
