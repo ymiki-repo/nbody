@@ -687,6 +687,7 @@ __global__ void clear_particles_device(type::position *__restrict pos, type::vel
 /// @param[out] tag0_dev tag to sort N-body particles (device memory)
 /// @param[out] tag0_dev tag to sort N-body particles (device memory)
 /// @param[out] temp_storage temporary storage for sorting on accelerator device (device memory)
+/// @param[out] temp_storage_size size of temporary storage for sorting on accelerator device
 /// @param[in] num number of N-body particles
 ///
 static inline void allocate_Nbody_particles(

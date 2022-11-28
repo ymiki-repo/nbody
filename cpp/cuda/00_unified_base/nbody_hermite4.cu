@@ -15,6 +15,7 @@
 #include <boost/program_options.hpp>           ///< boost::program_options
 #include <cmath>                               ///< std::fma
 #include <cstdint>                             ///< int32_t
+#include <cub/device/device_radix_sort.cuh>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -29,6 +30,76 @@
 #include "util/timer.hpp"
 
 constexpr type::flt_acc newton = AS_FLT_ACC(1.0);  ///< gravitational constant
+
+#ifndef NTHREADS
+constexpr type::int_idx NTHREADS = 256U;
+#endif  // NTHREADS
+
+///
+/// @brief required block size for the given problem size and number of threads per thread-block
+///
+constexpr auto BLOCKSIZE(const type::int_idx num, const type::int_idx thread) { return (1U + ((num - 1U) / thread)); }
+
+///
+/// @brief calculate gravitational acceleration on accelerator device
+///
+/// @param[in] ipos position of i-particles
+/// @param[in] ivel velocity of i-particles
+/// @param[out] iacc acceleration of i-particles
+/// @param[out] ijrk jerk of i-particles
+/// @param[in] Nj number of j-particles
+/// @param[in] jpos position of j-particles
+/// @param[in] jvel velocity of j-particles
+/// @param[in] eps2 square of softening length
+///
+__global__ void calc_acc_device(
+    const type::position *const ipos, const type::velocity *const ivel, type::acceleration *__restrict iacc, type::jerk *__restrict ijrk,
+    const type::int_idx Nj, const type::position *const jpos, const type::velocity *const jvel, const type::fp_l eps2) {
+  const type::int_idx ii = blockIdx.x * blockDim.x + threadIdx.x;
+
+  // initialization
+  const auto pi = ipos[ii];
+  const auto vi = ivel[ii];
+  type::acceleration ai = {AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0)};
+  type::jerk ji = {AS_FLT_JRK(0.0), AS_FLT_JRK(0.0), AS_FLT_JRK(0.0)};
+
+  // force evaluation
+  for (type::int_idx jj = 0U; jj < Nj; jj++) {
+    // load j-particle
+    const auto pj = jpos[jj];
+    const auto vj = jvel[jj];
+
+    // calculate acceleration
+    const auto dx = type::cast2fp_l(pj.x - pi.x);
+    const auto dy = type::cast2fp_l(pj.y - pi.y);
+    const auto dz = type::cast2fp_l(pj.z - pi.z);
+    const auto r2 = eps2 + dx * dx + dy * dy + dz * dz;
+    const auto r_inv = AS_FP_L(1.0) / std::sqrt(r2);
+    const auto r2_inv = r_inv * r_inv;
+    const auto alp = type::cast2fp_l(pj.w) * r_inv * r2_inv;
+    // force accumulation
+    ai.x += CAST2ACC(alp * dx);
+    ai.y += CAST2ACC(alp * dy);
+    ai.z += CAST2ACC(alp * dz);
+
+#ifdef CALCULATE_POTENTIAL
+    // gravitational potential
+    ai.w += CAST2ACC(alp * r2);
+#endif  // CALCULATE_POTENTIAL
+
+    // calculate jerk
+    const auto dvx = type::cast2fp_l(vj.x - vi.x);
+    const auto dvy = type::cast2fp_l(vj.y - vi.y);
+    const auto dvz = type::cast2fp_l(vj.z - vi.z);
+    const auto bet = AS_FP_L(-3.0) * (dx * dvx + dy * dvy + dz * dvz) * r2_inv;  ///< 3 * beta
+    // jerk accumulation
+    ji.x += CAST2JRK(alp * (dvx + bet * dx));
+    ji.y += CAST2JRK(alp * (dvy + bet * dy));
+    ji.z += CAST2JRK(alp * (dvz + bet * dz));
+  }
+  iacc[ii] = ai;
+  ijrk[ii] = ji;
+}
 
 ///
 /// @brief calculate gravitational acceleration
@@ -46,54 +117,56 @@ constexpr type::flt_acc newton = AS_FLT_ACC(1.0);  ///< gravitational constant
 static inline void calc_acc(
     const type::int_idx Ni, const type::position *const ipos, const type::velocity *const ivel, type::acceleration *__restrict iacc, type::jerk *__restrict ijrk,
     const type::int_idx Nj, const type::position *const jpos, const type::velocity *const jvel, const type::fp_l eps2) {
-#pragma omp parallel for
-  for (type::int_idx ii = 0U; ii < Ni; ii++) {
-    // initialization
-    const auto pi = ipos[ii];
-    const auto vi = ivel[ii];
-    type::acceleration ai = {AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0)};
-    type::jerk ji = {AS_FLT_JRK(0.0), AS_FLT_JRK(0.0), AS_FLT_JRK(0.0)};
+  calc_acc_device<<<BLOCKSIZE(Ni, NTHREADS), NTHREADS>>>(ipos, ivel, iacc, ijrk, Nj, jpos, jvel, eps2);
+}
 
-    // force evaluation
-    for (type::int_idx jj = 0U; jj < Nj; jj++) {
-      // load j-particle
-      const auto pj = jpos[jj];
-      const auto vj = jvel[jj];
-
-      // calculate acceleration
-      const auto dx = type::cast2fp_l(pj.x - pi.x);
-      const auto dy = type::cast2fp_l(pj.y - pi.y);
-      const auto dz = type::cast2fp_l(pj.z - pi.z);
-      const auto r2 = eps2 + dx * dx + dy * dy + dz * dz;
-      const auto r_inv = AS_FP_L(1.0) / std::sqrt(r2);
-      const auto r2_inv = r_inv * r_inv;
-      const auto alp = type::cast2fp_l(pj.w) * r_inv * r2_inv;
-      // force accumulation
-      ai.x += CAST2ACC(alp * dx);
-      ai.y += CAST2ACC(alp * dy);
-      ai.z += CAST2ACC(alp * dz);
-
-#ifdef CALCULATE_POTENTIAL
-      // gravitational potential
-      ai.w += CAST2ACC(alp * r2);
-#endif  // CALCULATE_POTENTIAL
-
-      // calculate jerk
-      const auto dvx = type::cast2fp_l(vj.x - vi.x);
-      const auto dvy = type::cast2fp_l(vj.y - vi.y);
-      const auto dvz = type::cast2fp_l(vj.z - vi.z);
-      const auto bet = AS_FP_L(-3.0) * (dx * dvx + dy * dvy + dz * dvz) * r2_inv;  ///< 3 * beta
-      // jerk accumulation
-      ji.x += CAST2JRK(alp * (dvx + bet * dx));
-      ji.y += CAST2JRK(alp * (dvy + bet * dy));
-      ji.z += CAST2JRK(alp * (dvz + bet * dz));
-    }
-    iacc[ii] = ai;
-    ijrk[ii] = ji;
-  }
+///
+/// @brief correct particle position and velocity on accelerator device
+///
+/// @param[out] tag tag to sort SoA
+///
+__global__ void reset_tag_device(type::int_idx *__restrict tag) {
+  const type::int_idx ii = blockIdx.x * blockDim.x + threadIdx.x;
+  tag[ii] = ii;
 }
 
 #ifndef BENCHMARK_MODE
+///
+/// @brief finalize calculation of gravitational acceleration on accelerator device
+///
+/// @param[in,out] acc acceleration of i-particles
+/// @param[in,out] jerk jerk of i-particles
+/// @param[in] pos position of i-particles
+/// @param[in] eps_inv inverse of softening length
+///
+__global__ void trim_acc_device(type::acceleration *__restrict acc, type::jerk *__restrict jerk
+#ifdef CALCULATE_POTENTIAL
+                                ,
+                                const type::position *const pos, const type::flt_acc eps_inv
+#endif  // CALCULATE_POTENTIAL
+) {
+  const type::int_idx ii = blockIdx.x * blockDim.x + threadIdx.x;
+
+  // initialization
+  auto ai = acc[ii];
+
+  ai.x *= newton;
+  ai.y *= newton;
+  ai.z *= newton;
+
+#ifdef CALCULATE_POTENTIAL
+  ai.w = (-ai.w + eps_inv * CAST2ACC(pos[ii].w)) * newton;
+#endif  // CALCULATE_POTENTIAL
+
+  acc[ii] = ai;
+
+  auto ji = jerk[ii];
+  ji.x *= newton;
+  ji.y *= newton;
+  ji.z *= newton;
+  jerk[ii] = ji;
+}
+
 ///
 /// @brief finalize calculation of gravitational acceleration
 ///
@@ -109,27 +182,106 @@ static inline void trim_acc(const type::int_idx Ni, type::acceleration *__restri
                             const type::position *const pos, const type::flt_acc eps_inv
 #endif  // CALCULATE_POTENTIAL
 ) {
-#pragma omp parallel for
-  for (type::int_idx ii = 0U; ii < Ni; ii++) {
-    // initialization
-    auto ai = acc[ii];
-
-    ai.x *= newton;
-    ai.y *= newton;
-    ai.z *= newton;
-
+  trim_acc_device<<<BLOCKSIZE(Ni, NTHREADS), NTHREADS>>>(acc, jerk
 #ifdef CALCULATE_POTENTIAL
-    ai.w = (-ai.w + eps_inv * CAST2ACC(pos[ii].w)) * newton;
+                                                         ,
+                                                         pos, eps_inv
 #endif  // CALCULATE_POTENTIAL
+  );
+}
 
-    acc[ii] = ai;
+///
+/// @brief guess initial time step by calculating snap and crackle on accelerator device
+///
+/// @param[in] ipos position of i-particles
+/// @param[in] ivel velocity of i-particles
+/// @param[in] iacc acceleration of i-particles
+/// @param[in] ijrk jerk of i-particles
+/// @param[in] Nj number of j-particles
+/// @param[in] jpos position of j-particles
+/// @param[in] jvel velocity of j-particles
+/// @param[in] jacc acceleration of j-particles
+/// @param[in] jjrk jerk of j-particles
+/// @param[in] eps2 square of softening length
+/// @param[in] eta safety parameter to determine time step
+/// @param[out] dt estimated time step
+///
+__global__ void guess_initial_dt_device(
+    const type::position *const ipos, const type::velocity *const ivel, const type::acceleration *const iacc, const type::jerk *const ijrk,
+    const type::int_idx Nj, const type::position *const jpos, const type::velocity *const jvel, const type::acceleration *const jacc, const type::jerk *const jjrk,
+    const type::fp_l eps2, const type::fp_m eta, type::fp_m *__restrict dt) {
+  const type::int_idx ii = blockIdx.x * blockDim.x + threadIdx.x;
 
-    auto ji = jerk[ii];
-    ji.x *= newton;
-    ji.y *= newton;
-    ji.z *= newton;
-    jerk[ii] = ji;
+  // initialization
+  const auto p_i = ipos[ii];
+  const auto v_i = ivel[ii];
+  const auto a_i = iacc[ii];
+  const auto j_i = ijrk[ii];
+  auto sx = AS_FP_M(0.0);
+  auto sy = AS_FP_M(0.0);
+  auto sz = AS_FP_M(0.0);
+  auto cx = AS_FP_M(0.0);
+  auto cy = AS_FP_M(0.0);
+  auto cz = AS_FP_M(0.0);
+
+  // force evaluation
+  for (type::int_idx jj = 0U; jj < Nj; jj++) {
+    // load j-particle
+    const auto p_j = jpos[jj];
+    const auto v_j = jvel[jj];
+    const auto a_j = jacc[jj];
+    const auto j_j = jjrk[jj];
+
+    // calculate acceleration
+    const auto dx = type::cast2fp_l(p_j.x - p_i.x);
+    const auto dy = type::cast2fp_l(p_j.y - p_i.y);
+    const auto dz = type::cast2fp_l(p_j.z - p_i.z);
+    const auto r2 = eps2 + dx * dx + dy * dy + dz * dz;
+    const auto r_inv = AS_FP_L(1.0) / std::sqrt(r2);
+    const auto r2_inv = r_inv * r_inv;
+    const auto alp = type::cast2fp_l(p_j.w) * r_inv * r2_inv;
+
+    // calculate jerk
+    const auto dvx = type::cast2fp_l(v_j.x - v_i.x);
+    const auto dvy = type::cast2fp_l(v_j.y - v_i.y);
+    const auto dvz = type::cast2fp_l(v_j.z - v_i.z);
+    const auto bet = -(dx * dvx + dy * dvy + dz * dvz) * r2_inv;
+
+    // calculate snap
+    const auto dax = type::cast2fp_l(a_j.x - a_i.x);
+    const auto day = type::cast2fp_l(a_j.y - a_i.y);
+    const auto daz = type::cast2fp_l(a_j.z - a_i.z);
+    const auto bet2 = bet * bet;
+    const auto gam = AS_FP_L(5.0) * bet2 - (dvx * dvx + dvy * dvy + dvz * dvz + dx * dax + dy * day + dz * daz) * r2_inv;
+    const auto s0 = AS_FP_L(6.0) * bet;
+    const auto s1 = AS_FP_L(3.0) * gam;
+    sx += type::cast2fp_m(alp * (dax + s0 * dvx + s1 * dx));
+    sy += type::cast2fp_m(alp * (day + s0 * dvy + s1 * dy));
+    sz += type::cast2fp_m(alp * (daz + s0 * dvz + s1 * dz));
+
+    // calculate crackle
+    const auto djx = type::cast2fp_l(j_j.x - j_i.x);
+    const auto djy = type::cast2fp_l(j_j.y - j_i.y);
+    const auto djz = type::cast2fp_l(j_j.z - j_i.z);
+    const auto del = AS_FP_L(5.0) * bet * (s1 - AS_FP_L(8.0) * bet2) - (dx * djx + dy * djy + dz * djz + AS_FP_L(3.0) * (dvx * dax + dvy * day + dvz * daz)) * r2_inv;
+    const auto c0 = AS_FP_L(9.0) * bet;
+    const auto c1 = AS_FP_L(9.0) * gam;
+    const auto c2 = AS_FP_L(3.0) * del;
+    cx += type::cast2fp_m(alp * (djx + c0 * dax + c1 * dvx + c2 * dx));
+    cy += type::cast2fp_m(alp * (djy + c0 * day + c1 * dvy + c2 * dy));
+    cz += type::cast2fp_m(alp * (djz + c0 * daz + c1 * dvz + c2 * dz));
   }
+
+  // guess initial dt at t = 0
+  const auto s0x = newton * sx;
+  const auto s0y = newton * sy;
+  const auto s0z = newton * sz;
+  const auto c0x = newton * cx;
+  const auto c0y = newton * cy;
+  const auto c0z = newton * cz;
+  const auto j2 = j_i.x * j_i.x + j_i.y * j_i.y + j_i.z * j_i.z;
+  const auto s2 = s0x * s0x + s0y * s0y + s0z * s0z;
+  dt[ii] = eta * std::sqrt((j2 + std::sqrt(s2 * (a_i.x * a_i.x + a_i.y * a_i.y + a_i.z * a_i.z))) / (s2 + std::sqrt(j2 * (c0x * c0x + c0y * c0y + c0z * c0z))));
 }
 
 ///
@@ -153,79 +305,49 @@ static inline void guess_initial_dt(
     const type::int_idx Ni, const type::position *const ipos, const type::velocity *const ivel, const type::acceleration *const iacc, const type::jerk *const ijrk,
     const type::int_idx Nj, const type::position *const jpos, const type::velocity *const jvel, const type::acceleration *const jacc, const type::jerk *const jjrk,
     const type::fp_l eps2, const type::fp_m eta, type::fp_m *__restrict dt) {
-#pragma omp parallel for
-  for (type::int_idx ii = 0U; ii < Ni; ii++) {
-    // initialization
-    const auto p_i = ipos[ii];
-    const auto v_i = ivel[ii];
-    const auto a_i = iacc[ii];
-    const auto j_i = ijrk[ii];
-    auto sx = AS_FP_M(0.0);
-    auto sy = AS_FP_M(0.0);
-    auto sz = AS_FP_M(0.0);
-    auto cx = AS_FP_M(0.0);
-    auto cy = AS_FP_M(0.0);
-    auto cz = AS_FP_M(0.0);
+  guess_initial_dt_device<<<BLOCKSIZE(Ni, NTHREADS), NTHREADS>>>(ipos, ivel, iacc, ijrk, Nj, jpos, jvel, jacc, jjrk, eps2, eta, dt);
+}
 
-    // force evaluation
-    for (type::int_idx jj = 0U; jj < Nj; jj++) {
-      // load j-particle
-      const auto p_j = jpos[jj];
-      const auto v_j = jvel[jj];
-      const auto a_j = jacc[jj];
-      const auto j_j = jjrk[jj];
+///
+/// @brief predict particle position and velocity on accelerator device
+///
+/// @param[in] t_pres current time of j-particles
+/// @param[in] pos0 current position of j-particles
+/// @param[in] vel0 current velocity of j-particles
+/// @param[in] acc0 current acceleration of j-particles
+/// @param[in] jrk0 current jerk of j-particles
+/// @param[out] pos1 predicted position of j-particles
+/// @param[out] vel1 predicted velocity of j-particles
+/// @param[in] t_next next time
+///
+__global__ void predict_device(
+    const type::fp_m *const t_pres, const type::position *const pos0, const type::velocity *const vel0, const type::acceleration *const acc0, const type::jerk *const jrk0,
+    type::position *__restrict pos1, type::velocity *__restrict vel1, const type::fp_m t_next) {
+  const type::int_idx jj = blockIdx.x * blockDim.x + threadIdx.x;
 
-      // calculate acceleration
-      const auto dx = type::cast2fp_l(p_j.x - p_i.x);
-      const auto dy = type::cast2fp_l(p_j.y - p_i.y);
-      const auto dz = type::cast2fp_l(p_j.z - p_i.z);
-      const auto r2 = eps2 + dx * dx + dy * dy + dz * dz;
-      const auto r_inv = AS_FP_L(1.0) / std::sqrt(r2);
-      const auto r2_inv = r_inv * r_inv;
-      const auto alp = type::cast2fp_l(p_j.w) * r_inv * r2_inv;
+  // set time step for this particle
+  const auto dt = t_next - t_pres[jj];
+  const auto dt_2 = AS_FP_M(0.5) * dt;
+  const auto dt_3 = dt * boost::math::constants::third<type::fp_m>();
 
-      // calculate jerk
-      const auto dvx = type::cast2fp_l(v_j.x - v_i.x);
-      const auto dvy = type::cast2fp_l(v_j.y - v_i.y);
-      const auto dvz = type::cast2fp_l(v_j.z - v_i.z);
-      const auto bet = -(dx * dvx + dy * dvy + dz * dvz) * r2_inv;
+  // load j-particles
+  const auto v0 = vel0[jj];
+  const auto a0 = acc0[jj];
+  const auto j0 = jrk0[jj];
 
-      // calculate snap
-      const auto dax = type::cast2fp_l(a_j.x - a_i.x);
-      const auto day = type::cast2fp_l(a_j.y - a_i.y);
-      const auto daz = type::cast2fp_l(a_j.z - a_i.z);
-      const auto bet2 = bet * bet;
-      const auto gam = AS_FP_L(5.0) * bet2 - (dvx * dvx + dvy * dvy + dvz * dvz + dx * dax + dy * day + dz * daz) * r2_inv;
-      const auto s0 = AS_FP_L(6.0) * bet;
-      const auto s1 = AS_FP_L(3.0) * gam;
-      sx += type::cast2fp_m(alp * (dax + s0 * dvx + s1 * dx));
-      sy += type::cast2fp_m(alp * (day + s0 * dvy + s1 * dy));
-      sz += type::cast2fp_m(alp * (daz + s0 * dvz + s1 * dz));
+  // predict particle position and velocity
+  type::velocity v1;
+  v1.x = v0.x + dt * (a0.x + dt_2 * j0.x);
+  v1.y = v0.y + dt * (a0.y + dt_2 * j0.y);
+  v1.z = v0.z + dt * (a0.z + dt_2 * j0.z);
+  auto p1 = pos0[jj];
+  p1.x += dt * (v0.x + dt_2 * (a0.x + dt_3 * j0.x));
+  p1.y += dt * (v0.y + dt_2 * (a0.y + dt_3 * j0.y));
+  p1.z += dt * (v0.z + dt_2 * (a0.z + dt_3 * j0.z));
 
-      // calculate crackle
-      const auto djx = type::cast2fp_l(j_j.x - j_i.x);
-      const auto djy = type::cast2fp_l(j_j.y - j_i.y);
-      const auto djz = type::cast2fp_l(j_j.z - j_i.z);
-      const auto del = AS_FP_L(5.0) * bet * (s1 - AS_FP_L(8.0) * bet2) - (dx * djx + dy * djy + dz * djz + AS_FP_L(3.0) * (dvx * dax + dvy * day + dvz * daz)) * r2_inv;
-      const auto c0 = AS_FP_L(9.0) * bet;
-      const auto c1 = AS_FP_L(9.0) * gam;
-      const auto c2 = AS_FP_L(3.0) * del;
-      cx += type::cast2fp_m(alp * (djx + c0 * dax + c1 * dvx + c2 * dx));
-      cy += type::cast2fp_m(alp * (djy + c0 * day + c1 * dvy + c2 * dy));
-      cz += type::cast2fp_m(alp * (djz + c0 * daz + c1 * dvz + c2 * dz));
-    }
-
-    // guess initial dt at t = 0
-    const auto s0x = newton * sx;
-    const auto s0y = newton * sy;
-    const auto s0z = newton * sz;
-    const auto c0x = newton * cx;
-    const auto c0y = newton * cy;
-    const auto c0z = newton * cz;
-    const auto j2 = j_i.x * j_i.x + j_i.y * j_i.y + j_i.z * j_i.z;
-    const auto s2 = s0x * s0x + s0y * s0y + s0z * s0z;
-    dt[ii] = eta * std::sqrt((j2 + std::sqrt(s2 * (a_i.x * a_i.x + a_i.y * a_i.y + a_i.z * a_i.z))) / (s2 + std::sqrt(j2 * (c0x * c0x + c0y * c0y + c0z * c0z))));
-  }
+  // store the predicted position and velocity
+  pos1[jj] = p1;
+  vel1[jj] = v1;
 }
 
 ///
@@ -244,32 +366,84 @@ static inline void guess_initial_dt(
 static inline void predict(
     const type::int_idx jnum, const type::fp_m *const t_pres, const type::position *const pos0, const type::velocity *const vel0, const type::acceleration *const acc0, const type::jerk *const jrk0,
     type::position *__restrict pos1, type::velocity *__restrict vel1, const type::fp_m t_next) {
-#pragma omp parallel for
-  for (type::int_idx jj = 0U; jj < jnum; jj++) {
-    // set time step for this particle
-    const auto dt = t_next - t_pres[jj];
-    const auto dt_2 = AS_FP_M(0.5) * dt;
-    const auto dt_3 = dt * boost::math::constants::third<type::fp_m>();
+  predict_device<<<BLOCKSIZE(jnum, NTHREADS), NTHREADS>>>(t_pres, pos0, vel0, acc0, jrk0, pos1, vel1, t_next);
+}
 
-    // load j-particles
-    const auto v0 = vel0[jj];
-    const auto a0 = acc0[jj];
-    const auto j0 = jrk0[jj];
+///
+/// @brief correct particle position and velocity on accelerator device
+///
+/// @param[in,out] t_pres current time of i-particles (to be corrected)
+/// @param[in,out] pos0 current position of i-particles (to be corrected)
+/// @param[in,out] vel0 current velocity of i-particles (to be corrected)
+/// @param[in,out] acc0 current acceleration of i-particles (to be corrected)
+/// @param[in,out] jrk0 current jerk of i-particles (to be corrected)
+/// @param[in,out] t_next next time of i-particles (to be corrected)
+/// @param[in] pos1 predicted position of i-particles
+/// @param[in] vel1 predicted velocity of i-particles
+/// @param[in] acc1 predicted acceleration of i-particles
+/// @param[in] jrk1 predicted jerk of i-particles
+/// @param[in] t1 next time
+/// @param[in] eta safety parameter to determine time step
+///
+__global__ void correct_device(
+    type::fp_m *__restrict t_pres, type::position *__restrict pos0, type::velocity *__restrict vel0, type::acceleration *__restrict acc0, type::jerk *__restrict jrk0, type::fp_m *__restrict t_next,
+    const type::position *const pos1, const type::velocity *const vel1, const type::acceleration *const acc1, const type::jerk *const jrk1, const type::fp_m t1, const type::fp_m eta) {
+  const type::int_idx ii = blockIdx.x * blockDim.x + threadIdx.x;
 
-    // predict particle position and velocity
-    type::velocity v1;
-    v1.x = v0.x + dt * (a0.x + dt_2 * j0.x);
-    v1.y = v0.y + dt * (a0.y + dt_2 * j0.y);
-    v1.z = v0.z + dt * (a0.z + dt_2 * j0.z);
-    auto p1 = pos0[jj];
-    p1.x += dt * (v0.x + dt_2 * (a0.x + dt_3 * j0.x));
-    p1.y += dt * (v0.y + dt_2 * (a0.y + dt_3 * j0.y));
-    p1.z += dt * (v0.z + dt_2 * (a0.z + dt_3 * j0.z));
+  // set time step for this particle
+  const auto dt = t1 - t_pres[ii];
+  t_pres[ii] = t1;
+  const auto dt_inv = AS_FP_M(1.0) / dt;
+  const auto dt_2 = AS_FP_M(0.5) * dt;
+  const auto dt_3 = dt * boost::math::constants::third<type::fp_m>();
+  const auto dt_4 = AS_FP_M(0.25) * dt;
+  const auto dt_5 = AS_FP_M(0.2) * dt;
+  const auto dt3_6 = dt * dt_2 * dt_3;
+  const auto dt4_24 = dt3_6 * dt_4;
+  const auto six_dt2 = AS_FP_M(6.0) * dt_inv * dt_inv;
+  const auto twelve_dt3 = AS_FP_M(2.0) * six_dt2 * dt_inv;
 
-    // store the predicted position and velocity
-    pos1[jj] = p1;
-    vel1[jj] = v1;
-  }
+  // load acceleration and jerk
+  const auto a0 = acc0[ii];
+  const auto a1 = acc1[ii];
+  acc0[ii] = a1;
+  const auto j0 = jrk0[ii];
+  const auto j1 = jrk1[ii];
+  jrk0[ii] = j1;
+
+  // calculate snap
+  const auto s0x = six_dt2 * ((a1.x - a0.x) - dt_3 * (j1.x + AS_FLT_JRK(2.0) * j0.x));
+  const auto s0y = six_dt2 * ((a1.y - a0.y) - dt_3 * (j1.y + AS_FLT_JRK(2.0) * j0.y));
+  const auto s0z = six_dt2 * ((a1.z - a0.z) - dt_3 * (j1.z + AS_FLT_JRK(2.0) * j0.z));
+
+  // calculate crackle
+  const auto c0x = twelve_dt3 * ((a0.x - a1.x) + dt_2 * (j1.x + j0.x));
+  const auto c0y = twelve_dt3 * ((a0.y - a1.y) + dt_2 * (j1.y + j0.y));
+  const auto c0z = twelve_dt3 * ((a0.z - a1.z) + dt_2 * (j1.z + j0.z));
+
+  // correct velocity
+  auto v1 = vel1[ii];
+  v1.x += dt3_6 * (s0x + dt_4 * c0x);
+  v1.y += dt3_6 * (s0y + dt_4 * c0y);
+  v1.z += dt3_6 * (s0z + dt_4 * c0z);
+  vel0[ii] = v1;
+
+  // correct position
+  auto p1 = pos1[ii];
+  p1.x += dt4_24 * (s0x + dt_5 * c0x);
+  p1.y += dt4_24 * (s0y + dt_5 * c0y);
+  p1.z += dt4_24 * (s0z + dt_5 * c0z);
+  pos0[ii] = p1;
+
+  // interpolate snap
+  const auto s1x = s0x + dt * c0x;
+  const auto s1y = s0y + dt * c0y;
+  const auto s1z = s0z + dt * c0z;
+
+  // update time step (c1x = d0x under 3rd-order Hermite interpolation)
+  const auto j2 = j1.x * j1.x + j1.y * j1.y + j1.z * j1.z;
+  const auto s2 = s1x * s1x + s1y * s1y + s1z * s1z;
+  t_next[ii] = t1 + eta * std::sqrt((j2 + std::sqrt(s2 * (a1.x * a1.x + a1.y * a1.y + a1.z * a1.z))) / (s2 + std::sqrt(j2 * (c0x * c0x + c0y * c0y + c0z * c0z))));
 }
 
 ///
@@ -292,63 +466,72 @@ static inline void predict(
 static inline void correct(
     const type::int_idx inum, type::fp_m *__restrict t_pres, type::position *__restrict pos0, type::velocity *__restrict vel0, type::acceleration *__restrict acc0, type::jerk *__restrict jrk0, type::fp_m *__restrict t_next,
     const type::position *const pos1, const type::velocity *const vel1, const type::acceleration *const acc1, const type::jerk *const jrk1, const type::fp_m t1, const type::fp_m eta) {
-#pragma omp parallel for
-  for (type::int_idx ii = 0U; ii < inum; ii++) {
-    // set time step for this particle
-    const auto dt = t1 - t_pres[ii];
-    t_pres[ii] = t1;
-    const auto dt_inv = AS_FP_M(1.0) / dt;
-    const auto dt_2 = AS_FP_M(0.5) * dt;
-    const auto dt_3 = dt * boost::math::constants::third<type::fp_m>();
-    const auto dt_4 = AS_FP_M(0.25) * dt;
-    const auto dt_5 = AS_FP_M(0.2) * dt;
-    const auto dt3_6 = dt * dt_2 * dt_3;
-    const auto dt4_24 = dt3_6 * dt_4;
-    const auto six_dt2 = AS_FP_M(6.0) * dt_inv * dt_inv;
-    const auto twelve_dt3 = AS_FP_M(2.0) * six_dt2 * dt_inv;
+  correct_device<<<BLOCKSIZE(inum, NTHREADS), NTHREADS>>>(t_pres, pos0, vel0, acc0, jrk0, t_next, pos1, vel1, acc1, jrk1, t1, eta);
+}
 
-    // load acceleration and jerk
-    const auto a0 = acc0[ii];
-    const auto a1 = acc1[ii];
-    acc0[ii] = a1;
-    const auto j0 = jrk0[ii];
-    const auto j1 = jrk1[ii];
-    jrk0[ii] = j1;
+///
+/// @brief sort N-body particles on accelerator device
+///
+/// @param[in] src_pos position of N-body particles (source array)
+/// @param[in] src_vel velocity of N-body particles (source array)
+/// @param[in] src_acc acceleration of N-body particles (source array)
+/// @param[in] src_jrk jerk of N-body particles (source array)
+/// @param[in] src_prs present time of N-body particles (source array)
+/// @param[in] src_idx index of N-body particles (source array)
+/// @param[out] dst_pos position of N-body particles (destination array)
+/// @param[out] dst_vel velocity of N-body particles (destination array)
+/// @param[out] dst_acc acceleration of N-body particles (destination array)
+/// @param[out] dst_jrk jerk of N-body particles (destination array)
+/// @param[out] dst_prs present time of N-body particles (destination array)
+/// @param[out] dst_idx index of N-body particles (destination array)
+/// @param[in] tag tentative array to sort N-body particles
+///
+__global__ void sort_particles_device(
+    const type::position *const src_pos, const type::velocity *const src_vel, const type::acceleration *const src_acc, const type::jerk *const src_jrk, const type::fp_m *const src_prs, const type::int_idx *const src_idx,
+    type::position *__restrict dst_pos, type::velocity *__restrict dst_vel, type::acceleration *__restrict dst_acc, type::jerk *__restrict dst_jrk, type::fp_m *__restrict dst_prs, type::int_idx *__restrict dst_idx,
+    const type::int_idx *const tag) {
+  const type::int_idx ii = blockIdx.x * blockDim.x + threadIdx.x;
+  const auto jj = tag[ii];
+  dst_pos[ii] = src_pos[jj];
+  dst_vel[ii] = src_vel[jj];
+  dst_acc[ii] = src_acc[jj];
+  dst_jrk[ii] = src_jrk[jj];
+  dst_prs[ii] = src_prs[jj];
+  // dst_nxt[ii] = src_nxt[jj];
+  dst_idx[ii] = src_idx[jj];
+}
 
-    // calculate snap
-    const auto s0x = six_dt2 * ((a1.x - a0.x) - dt_3 * (j1.x + AS_FLT_JRK(2.0) * j0.x));
-    const auto s0y = six_dt2 * ((a1.y - a0.y) - dt_3 * (j1.y + AS_FLT_JRK(2.0) * j0.y));
-    const auto s0z = six_dt2 * ((a1.z - a0.z) - dt_3 * (j1.z + AS_FLT_JRK(2.0) * j0.z));
-
-    // calculate crackle
-    const auto c0x = twelve_dt3 * ((a0.x - a1.x) + dt_2 * (j1.x + j0.x));
-    const auto c0y = twelve_dt3 * ((a0.y - a1.y) + dt_2 * (j1.y + j0.y));
-    const auto c0z = twelve_dt3 * ((a0.z - a1.z) + dt_2 * (j1.z + j0.z));
-
-    // correct velocity
-    auto v1 = vel1[ii];
-    v1.x += dt3_6 * (s0x + dt_4 * c0x);
-    v1.y += dt3_6 * (s0y + dt_4 * c0y);
-    v1.z += dt3_6 * (s0z + dt_4 * c0z);
-    vel0[ii] = v1;
-
-    // correct position
-    auto p1 = pos1[ii];
-    p1.x += dt4_24 * (s0x + dt_5 * c0x);
-    p1.y += dt4_24 * (s0y + dt_5 * c0y);
-    p1.z += dt4_24 * (s0z + dt_5 * c0z);
-    pos0[ii] = p1;
-
-    // interpolate snap
-    const auto s1x = s0x + dt * c0x;
-    const auto s1y = s0y + dt * c0y;
-    const auto s1z = s0z + dt * c0z;
-
-    // update time step (c1x = d0x under 3rd-order Hermite interpolation)
-    const auto j2 = j1.x * j1.x + j1.y * j1.y + j1.z * j1.z;
-    const auto s2 = s1x * s1x + s1y * s1y + s1z * s1z;
-    t_next[ii] = t1 + eta * std::sqrt((j2 + std::sqrt(s2 * (a1.x * a1.x + a1.y * a1.y + a1.z * a1.z))) / (s2 + std::sqrt(j2 * (c0x * c0x + c0y * c0y + c0z * c0z))));
-  }
+///
+/// @brief copy N-body particles on accelerator device
+///
+/// @param[in] src_pos position of N-body particles (source array)
+/// @param[in] src_vel velocity of N-body particles (source array)
+/// @param[in] src_acc acceleration of N-body particles (source array)
+/// @param[in] src_jrk jerk of N-body particles (source array)
+/// @param[in] src_prs present time of N-body particles (source array)
+/// @param[in] src_nxt next time of N-body particles (source array)
+/// @param[in] src_idx index of N-body particles (source array)
+/// @param[out] dst_pos position of N-body particles (destination array)
+/// @param[out] dst_vel velocity of N-body particles (destination array)
+/// @param[out] dst_acc acceleration of N-body particles (destination array)
+/// @param[out] dst_jrk jerk of N-body particles (destination array)
+/// @param[out] dst_prs present time of N-body particles (destination array)
+/// @param[out] dst_nxt next time of N-body particles (destination array)
+/// @param[out] dst_idx index of N-body particles (destination array)
+/// @param[in] head head index of N-body particles to be copied
+///
+__global__ void copy_particles_device(
+    const type::position *const src_pos, const type::velocity *const src_vel, const type::acceleration *const src_acc, const type::jerk *const src_jrk, const type::fp_m *const src_prs, const type::fp_m *const src_nxt, const type::int_idx *const src_idx,
+    type::position *__restrict dst_pos, type::velocity *__restrict dst_vel, type::acceleration *__restrict dst_acc, type::jerk *__restrict dst_jrk, type::fp_m *__restrict dst_prs, type::fp_m *__restrict dst_nxt, type::int_idx *__restrict dst_idx,
+    const type::int_idx head = 0U) {
+  const type::int_idx ii = blockIdx.x * blockDim.x + threadIdx.x + head;
+  dst_pos[ii] = src_pos[ii];
+  dst_vel[ii] = src_vel[ii];
+  dst_acc[ii] = src_acc[ii];
+  dst_jrk[ii] = src_jrk[ii];
+  dst_prs[ii] = src_prs[ii];
+  dst_nxt[ii] = src_nxt[ii];
+  dst_idx[ii] = src_idx[ii];
 }
 
 ///
@@ -356,55 +539,29 @@ static inline void correct(
 ///
 /// @param[in] Ni number of i-particles
 /// @param[in] num total number of N-body particles
-/// @param tag tentative array to sort N-body particles
+/// @param[out] tag0_dev tentative array to sort N-body particles
+/// @param[out] tag1_dev tentative array to sort N-body particles
 /// @param[in] iacc acceleration of i-particles
 /// @param[in,out] src input N-body particles (to be sorted)
 /// @param[in] dst tentative SoA of N-body particles
+/// @param[in] temp_storage tentative storage for CUB
+/// @param[in] temp_storage_size size of tentative storage for CUB
 ///
-static inline void sort_particles(const type::int_idx Ni, const type::int_idx num, type::int_idx *__restrict tag, type::nbody *__restrict src, type::nbody *__restrict dst) {
+static inline void sort_particles(const type::int_idx Ni, const type::int_idx num, type::int_idx *__restrict tag0_dev, type::int_idx *__restrict tag1_dev, type::nbody *__restrict src, type::nbody *__restrict dst, void *temp_storage, size_t &temp_storage_size) {
   // sort particle time
-  std::iota(tag, tag + Ni, 0U);
-  std::sort(tag, tag + Ni, [src](auto ii, auto jj) { return ((*src).nxt[ii] < (*src).nxt[jj]); });
+  reset_tag_device<<<BLOCKSIZE(Ni, NTHREADS), NTHREADS>>>(tag0_dev);
+  cub::DeviceRadixSort::SortPairs(temp_storage, temp_storage_size, (*src).nxt, (*dst).nxt, tag0_dev, tag1_dev, Ni);
 
   // sort N-body particles
-#pragma omp parallel for
-  for (type::int_idx ii = 0U; ii < Ni; ii++) {
-    const auto jj = tag[ii];
-
-    (*dst).pos[ii] = (*src).pos[jj];
-    (*dst).vel[ii] = (*src).vel[jj];
-    (*dst).acc[ii] = (*src).acc[jj];
-    (*dst).jrk[ii] = (*src).jrk[jj];
-    (*dst).prs[ii] = (*src).prs[jj];
-    (*dst).nxt[ii] = (*src).nxt[jj];
-    (*dst).idx[ii] = (*src).idx[jj];
-  }
+  sort_particles_device<<<BLOCKSIZE(Ni, NTHREADS), NTHREADS>>>((*src).pos, (*src).vel, (*src).acc, (*src).jrk, (*src).prs, (*src).idx, (*dst).pos, (*dst).vel, (*dst).acc, (*dst).jrk, (*dst).prs, (*dst).idx, tag1_dev);
 
   if (Ni < (num >> 1)) {
     // copy sorted particles
-#pragma omp parallel for
-    for (type::int_idx ii = 0U; ii < Ni; ii++) {
-      (*src).pos[ii] = (*dst).pos[ii];
-      (*src).vel[ii] = (*dst).vel[ii];
-      (*src).acc[ii] = (*dst).acc[ii];
-      (*src).jrk[ii] = (*dst).jrk[ii];
-      (*src).prs[ii] = (*dst).prs[ii];
-      (*src).nxt[ii] = (*dst).nxt[ii];
-      (*src).idx[ii] = (*dst).idx[ii];
-    }
+    copy_particles_device<<<BLOCKSIZE(Ni, NTHREADS), NTHREADS>>>((*dst).pos, (*dst).vel, (*dst).acc, (*dst).jrk, (*dst).prs, (*dst).nxt, (*dst).idx, (*src).pos, (*src).vel, (*src).acc, (*src).jrk, (*src).prs, (*src).nxt, (*src).idx);
   } else {
     // copy unsorted particles (having longer time step)
     if (Ni < num) {
-#pragma omp parallel for
-      for (type::int_idx ii = Ni; ii < num; ii++) {
-        (*dst).pos[ii] = (*src).pos[ii];
-        (*dst).vel[ii] = (*src).vel[ii];
-        (*dst).acc[ii] = (*src).acc[ii];
-        (*dst).jrk[ii] = (*src).jrk[ii];
-        (*dst).prs[ii] = (*src).prs[ii];
-        (*dst).nxt[ii] = (*src).nxt[ii];
-        (*dst).idx[ii] = (*src).idx[ii];
-      }
+      copy_particles_device<<<BLOCKSIZE(num - Ni, NTHREADS), NTHREADS>>>((*src).pos, (*src).vel, (*src).acc, (*src).jrk, (*src).prs, (*src).nxt, (*src).idx, (*dst).pos, (*dst).vel, (*dst).acc, (*dst).jrk, (*dst).prs, (*dst).nxt, (*dst).idx, Ni);
     }
 
     // swap SoAs
@@ -415,12 +572,24 @@ static inline void sort_particles(const type::int_idx Ni, const type::int_idx nu
 }
 
 ///
+/// @brief set next time of N-body particles on accelerator device
+///
+/// @param[out] next next time of N-body particles
+/// @param[in] time_next updated next time
+///
+__global__ void set_next_time_device(type::fp_m *__restrict next, const type::fp_m time_next) {
+  const type::int_idx ii = blockIdx.x * blockDim.x + threadIdx.x;
+  next[ii] = time_next;
+}
+
+///
 /// @brief set block time step
 ///
 /// @param[in] num total number of N-body particles
-/// @param[in,out] body N-body particles
+/// @param[in,out] body_dev N-body particles (device memory)
 /// @param[in] time_pres current time
 /// @param[in] time_sync time when all N-body particles to be synchronized
+/// @param[in,out] body N-body particles (host memory)
 ///
 /// @return number of i-particles and time after the orbit integration
 ///
@@ -430,7 +599,7 @@ static inline auto set_time_step(const type::int_idx num, type::nbody &body, con
   if (time_next < time_sync) {
     // adopt block time step
     const auto next_time_next = time_pres + std::exp2(AS_FP_M(1.0) + std::floor(std::log2(time_next - time_pres)));
-    for (type::int_idx ii = type::N_simd_fp_l; ii < num; ii += type::N_simd_fp_l) {
+    for (type::int_idx ii = NTHREADS; ii < num; ii += NTHREADS) {
       if (body.nxt[ii] >= next_time_next) {
         Ni = ii;
         break;
@@ -438,13 +607,22 @@ static inline auto set_time_step(const type::int_idx num, type::nbody &body, con
     }
   }
 
-  // unify the next time within the integrated block
-#pragma omp parallel for
-  for (type::int_idx ii = 0U; ii < Ni; ii++) {
-    body.nxt[ii] = time_next;
-  }
+  set_next_time_device<<<BLOCKSIZE(Ni, NTHREADS), NTHREADS>>>(body.nxt, time_next);
 
   return (std::make_pair(Ni, time_next));
+}
+
+///
+/// @brief reset particle time on accelerator device
+///
+/// @param[out] pres present time of N-body particles
+/// @param[in,out] next next time of N-body particles
+/// @param[in] snapshot_interval current time
+///
+__global__ void reset_particle_time_device(type::fp_m *__restrict pres, type::fp_m *__restrict next, const type::fp_m snapshot_interval) {
+  const type::int_idx ii = blockIdx.x * blockDim.x + threadIdx.x;
+  pres[ii] = AS_FP_M(0.0);
+  next[ii] -= snapshot_interval;
 }
 
 ///
@@ -455,11 +633,7 @@ static inline auto set_time_step(const type::int_idx num, type::nbody &body, con
 /// @param[in] snapshot_interval current time
 ///
 static inline void reset_particle_time(const type::int_idx num, type::nbody &body, const type::fp_m snapshot_interval) {
-#pragma omp parallel for
-  for (type::int_idx ii = 0U; ii < num; ii++) {
-    body.prs[ii] = AS_FP_M(0.0);
-    body.nxt[ii] -= snapshot_interval;
-  }
+  reset_particle_time_device<<<BLOCKSIZE(num, NTHREADS), NTHREADS>>>(body.prs, body.nxt, snapshot_interval);
 }
 #endif  // BENCHMARK_MODE
 
@@ -482,29 +656,34 @@ static inline void reset_particle_time(const type::int_idx num, type::nbody &bod
 /// @param[out] prs1 present time of N-body particles
 /// @param[out] nxt1 next time of N-body particles
 /// @param[out] idx1 ID of N-body particles
-/// @param[out] tag tag to sort N-body particles
+/// @param[out] tag0 tag to sort N-body particles
+/// @param[out] tag1 tag to sort N-body particles
+/// @param[out] temp_storage temporary storage for sorting on accelerator device (device memory)
+/// @param[out] temp_storage_size size of temporary storage for sorting on accelerator device
 /// @param[in] num number of N-body particles
 ///
 static inline void allocate_Nbody_particles(
-    type::nbody &body0, std::unique_ptr<type::position[]> &pos0, std::unique_ptr<type::velocity[]> &vel0, std::unique_ptr<type::acceleration[]> &acc0, std::unique_ptr<type::jerk[]> &jrk0, std::unique_ptr<type::fp_m[]> &prs0, std::unique_ptr<type::fp_m[]> &nxt0, std::unique_ptr<type::int_idx[]> &idx0,
-    type::nbody &body1, std::unique_ptr<type::position[]> &pos1, std::unique_ptr<type::velocity[]> &vel1, std::unique_ptr<type::acceleration[]> &acc1, std::unique_ptr<type::jerk[]> &jrk1, std::unique_ptr<type::fp_m[]> &prs1, std::unique_ptr<type::fp_m[]> &nxt1, std::unique_ptr<type::int_idx[]> &idx1,
-    std::unique_ptr<type::int_idx[]> &tag, const type::int_idx num) {
-  const auto size = static_cast<size_t>(num);
-  pos0 = std::make_unique<type::position[]>(size);
-  pos1 = std::make_unique<type::position[]>(size);
-  vel0 = std::make_unique<type::velocity[]>(size);
-  vel1 = std::make_unique<type::velocity[]>(size);
-  acc0 = std::make_unique<type::acceleration[]>(size);
-  acc1 = std::make_unique<type::acceleration[]>(size);
-  jrk0 = std::make_unique<type::jerk[]>(size);
-  jrk1 = std::make_unique<type::jerk[]>(size);
-  prs0 = std::make_unique<type::fp_m[]>(size);
-  prs1 = std::make_unique<type::fp_m[]>(size);
-  nxt0 = std::make_unique<type::fp_m[]>(size);
-  nxt1 = std::make_unique<type::fp_m[]>(size);
-  idx0 = std::make_unique<type::int_idx[]>(size);
-  idx1 = std::make_unique<type::int_idx[]>(size);
-  tag = std::make_unique<type::int_idx[]>(size);
+    type::nbody &body0, type::position **pos0, type::velocity **vel0, type::acceleration **acc0, type::jerk **jrk0, type::fp_m **prs0, type::fp_m **nxt0, type::int_idx **idx0,
+    type::nbody &body1, type::position **pos1, type::velocity **vel1, type::acceleration **acc1, type::jerk **jrk1, type::fp_m **prs1, type::fp_m **nxt1, type::int_idx **idx1,
+    type::int_idx **tag0, type::int_idx **tag1, void **temp_storage, size_t &temp_storage_size, const type::int_idx num) {
+  auto size = static_cast<size_t>(num);
+  if ((num % NTHREADS) != 0U) {
+    size += static_cast<size_t>(NTHREADS - (num % NTHREADS));
+  }
+  cudaMallocManaged((void **)pos0, size * sizeof(type::position));
+  cudaMallocManaged((void **)pos1, size * sizeof(type::position));
+  cudaMallocManaged((void **)vel0, size * sizeof(type::velocity));
+  cudaMallocManaged((void **)vel1, size * sizeof(type::velocity));
+  cudaMallocManaged((void **)acc0, size * sizeof(type::acceleration));
+  cudaMallocManaged((void **)acc1, size * sizeof(type::acceleration));
+  cudaMallocManaged((void **)jrk0, size * sizeof(type::jerk));
+  cudaMallocManaged((void **)jrk1, size * sizeof(type::jerk));
+  cudaMallocManaged((void **)prs0, size * sizeof(type::fp_m));
+  cudaMallocManaged((void **)prs1, size * sizeof(type::fp_m));
+  cudaMallocManaged((void **)nxt0, size * sizeof(type::fp_m));
+  cudaMallocManaged((void **)nxt1, size * sizeof(type::fp_m));
+  cudaMallocManaged((void **)idx0, size * sizeof(type::int_idx));
+  cudaMallocManaged((void **)idx1, size * sizeof(type::int_idx));
 
   // initialize arrays (for safety of massless particles and first touch)
   constexpr type::position p_zero = {AS_FLT_POS(0.0), AS_FLT_POS(0.0), AS_FLT_POS(0.0), AS_FLT_POS(0.0)};
@@ -513,38 +692,47 @@ static inline void allocate_Nbody_particles(
   constexpr type::jerk j_zero = {AS_FLT_JRK(0.0), AS_FLT_JRK(0.0), AS_FLT_JRK(0.0)};
 #pragma omp parallel for
   for (size_t ii = 0U; ii < size; ii++) {
-    pos0[ii] = p_zero;
-    pos1[ii] = p_zero;
-    vel0[ii] = v_zero;
-    vel1[ii] = v_zero;
-    acc0[ii] = a_zero;
-    acc1[ii] = a_zero;
-    jrk0[ii] = j_zero;
-    jrk1[ii] = j_zero;
-    prs0[ii] = AS_FP_M(0.0);
-    prs1[ii] = AS_FP_M(0.0);
-    nxt0[ii] = AS_FP_M(0.0);
-    nxt1[ii] = AS_FP_M(0.0);
-    idx0[ii] = std::numeric_limits<type::int_idx>::max();
-    idx1[ii] = std::numeric_limits<type::int_idx>::max();
-    tag[ii] = std::numeric_limits<type::int_idx>::max();
+    (*pos0)[ii] = p_zero;
+    (*pos1)[ii] = p_zero;
+    (*vel0)[ii] = v_zero;
+    (*vel1)[ii] = v_zero;
+    (*acc0)[ii] = a_zero;
+    (*acc1)[ii] = a_zero;
+    (*jrk0)[ii] = j_zero;
+    (*jrk1)[ii] = j_zero;
+    (*prs0)[ii] = AS_FP_M(0.0);
+    (*prs1)[ii] = AS_FP_M(0.0);
+    (*nxt0)[ii] = AS_FP_M(0.0);
+    (*nxt1)[ii] = AS_FP_M(0.0);
+    (*idx0)[ii] = std::numeric_limits<type::int_idx>::max();
+    (*idx1)[ii] = std::numeric_limits<type::int_idx>::max();
   }
 
+  // memory allocation for sorting
+  cudaMalloc((void **)tag0, size * sizeof(type::int_idx));
+  cudaMalloc((void **)tag1, size * sizeof(type::int_idx));
+  temp_storage_size = 0U;
+  *temp_storage = NULL;
+  reset_tag_device<<<BLOCKSIZE(size, NTHREADS), NTHREADS>>>(*tag0);
+  reset_tag_device<<<BLOCKSIZE(size, NTHREADS), NTHREADS>>>(*tag1);
+  cub::DeviceRadixSort::SortPairs(*temp_storage, temp_storage_size, *nxt0, *nxt1, *tag0, *tag1, size);
+  cudaMalloc(temp_storage, temp_storage_size);
+
   // assign SoA
-  body0.pos = pos0.get();
-  body0.vel = vel0.get();
-  body0.acc = acc0.get();
-  body0.jrk = jrk0.get();
-  body0.prs = prs0.get();
-  body0.nxt = nxt0.get();
-  body0.idx = idx0.get();
-  body1.pos = pos1.get();
-  body1.vel = vel1.get();
-  body1.acc = acc1.get();
-  body1.jrk = jrk1.get();
-  body1.prs = prs1.get();
-  body1.nxt = nxt1.get();
-  body1.idx = idx1.get();
+  body0.pos = *pos0;
+  body0.vel = *vel0;
+  body0.acc = *acc0;
+  body0.jrk = *jrk0;
+  body0.prs = *prs0;
+  body0.nxt = *nxt0;
+  body0.idx = *idx0;
+  body1.pos = *pos1;
+  body1.vel = *vel1;
+  body1.acc = *acc1;
+  body1.jrk = *jrk1;
+  body1.prs = *prs1;
+  body1.nxt = *nxt1;
+  body1.idx = *idx1;
 }
 
 ///
@@ -564,27 +752,31 @@ static inline void allocate_Nbody_particles(
 /// @param[out] prs1 present time of N-body particles
 /// @param[out] nxt1 next time of N-body particles
 /// @param[out] idx1 ID of N-body particles
-/// @param[out] tag tag to sort N-body particles
+/// @param[out] tag0 tag to sort N-body particles
+/// @param[out] tag1 tag to sort N-body particles
+/// @param[out] temp_storage temporary storage for sorting on accelerator device
 ///
 static inline void release_Nbody_particles(
-    std::unique_ptr<type::position[]> &pos0, std::unique_ptr<type::velocity[]> &vel0, std::unique_ptr<type::acceleration[]> &acc0, std::unique_ptr<type::jerk[]> &jrk0, std::unique_ptr<type::fp_m[]> &prs0, std::unique_ptr<type::fp_m[]> &nxt0, std::unique_ptr<type::int_idx[]> &idx0,
-    std::unique_ptr<type::position[]> &pos1, std::unique_ptr<type::velocity[]> &vel1, std::unique_ptr<type::acceleration[]> &acc1, std::unique_ptr<type::jerk[]> &jrk1, std::unique_ptr<type::fp_m[]> &prs1, std::unique_ptr<type::fp_m[]> &nxt1, std::unique_ptr<type::int_idx[]> &idx1,
-    std::unique_ptr<type::int_idx[]> &tag) {
-  pos0.reset();
-  pos1.reset();
-  vel0.reset();
-  vel1.reset();
-  acc0.reset();
-  acc1.reset();
-  jrk0.reset();
-  jrk1.reset();
-  prs0.reset();
-  prs1.reset();
-  nxt0.reset();
-  nxt1.reset();
-  idx0.reset();
-  idx1.reset();
-  tag.reset();
+    type::position *pos0, type::velocity *vel0, type::acceleration *acc0, type::jerk *jrk0, type::fp_m *prs0, type::fp_m *nxt0, type::int_idx *idx0,
+    type::position *pos1, type::velocity *vel1, type::acceleration *acc1, type::jerk *jrk1, type::fp_m *prs1, type::fp_m *nxt1, type::int_idx *idx1,
+    type::int_idx *tag0, type::int_idx *tag1, void *temp_storage) {
+  cudaFree(pos0);
+  cudaFree(pos1);
+  cudaFree(vel0);
+  cudaFree(vel1);
+  cudaFree(acc0);
+  cudaFree(acc1);
+  cudaFree(jrk0);
+  cudaFree(jrk1);
+  cudaFree(prs0);
+  cudaFree(prs1);
+  cudaFree(nxt0);
+  cudaFree(nxt1);
+  cudaFree(idx0);
+  cudaFree(idx1);
+  cudaFree(tag0);
+  cudaFree(tag1);
+  cudaFree(temp_storage);
 }
 
 auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *const *const argv) -> int32_t {
@@ -633,26 +825,29 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
 #endif  // BENCHMARK_MODE
 
     // memory allocation
-    alignas(MEMORY_ALIGNMENT) std::unique_ptr<type::position[]> pos0;
-    alignas(MEMORY_ALIGNMENT) std::unique_ptr<type::position[]> pos1;
-    alignas(MEMORY_ALIGNMENT) std::unique_ptr<type::velocity[]> vel0;
-    alignas(MEMORY_ALIGNMENT) std::unique_ptr<type::velocity[]> vel1;
-    alignas(MEMORY_ALIGNMENT) std::unique_ptr<type::acceleration[]> acc0;
-    alignas(MEMORY_ALIGNMENT) std::unique_ptr<type::acceleration[]> acc1;
-    alignas(MEMORY_ALIGNMENT) std::unique_ptr<type::jerk[]> jerk0;
-    alignas(MEMORY_ALIGNMENT) std::unique_ptr<type::jerk[]> jerk1;
-    alignas(MEMORY_ALIGNMENT) std::unique_ptr<type::fp_m[]> pres0;
-    alignas(MEMORY_ALIGNMENT) std::unique_ptr<type::fp_m[]> pres1;
-    alignas(MEMORY_ALIGNMENT) std::unique_ptr<type::fp_m[]> next0;
-    alignas(MEMORY_ALIGNMENT) std::unique_ptr<type::fp_m[]> next1;
-    alignas(MEMORY_ALIGNMENT) std::unique_ptr<type::int_idx[]> id0;
-    alignas(MEMORY_ALIGNMENT) std::unique_ptr<type::int_idx[]> id1;
-    alignas(MEMORY_ALIGNMENT) std::unique_ptr<type::int_idx[]> tag;
+    alignas(MEMORY_ALIGNMENT) type::position *pos0;
+    alignas(MEMORY_ALIGNMENT) type::position *pos1;
+    alignas(MEMORY_ALIGNMENT) type::velocity *vel0;
+    alignas(MEMORY_ALIGNMENT) type::velocity *vel1;
+    alignas(MEMORY_ALIGNMENT) type::acceleration *acc0;
+    alignas(MEMORY_ALIGNMENT) type::acceleration *acc1;
+    alignas(MEMORY_ALIGNMENT) type::jerk *jerk0;
+    alignas(MEMORY_ALIGNMENT) type::jerk *jerk1;
+    alignas(MEMORY_ALIGNMENT) type::fp_m *pres0;
+    alignas(MEMORY_ALIGNMENT) type::fp_m *pres1;
+    alignas(MEMORY_ALIGNMENT) type::fp_m *next0;
+    alignas(MEMORY_ALIGNMENT) type::fp_m *next1;
+    alignas(MEMORY_ALIGNMENT) type::int_idx *id0;
+    alignas(MEMORY_ALIGNMENT) type::int_idx *id1;
+    alignas(MEMORY_ALIGNMENT) type::int_idx *tag0;
+    alignas(MEMORY_ALIGNMENT) type::int_idx *tag1;
+    alignas(MEMORY_ALIGNMENT) void *temp_storage;
+    size_t temp_storage_size = 0U;
     auto body0 = type::nbody();
     auto body1 = type::nbody();
     allocate_Nbody_particles(
-        body0, pos0, vel0, acc0, jerk0, pres0, next0, id0,
-        body1, pos1, vel1, acc1, jerk1, pres1, next1, id1, tag, num);
+        body0, &pos0, &vel0, &acc0, &jerk0, &pres0, &next0, &id0,
+        body1, &pos1, &vel1, &acc1, &jerk1, &pres1, &next1, &id1, &tag0, &tag1, &temp_storage, temp_storage_size, num);
 
     // generate initial-condition
     init::set_uniform_sphere(num, body0.pos, body0.vel, M_tot, rad, virial, CAST2VEL(newton));
@@ -668,6 +863,7 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
              body0.pos, eps_inv
 #endif  // CALCULATE_POTENTIAL
     );
+    cudaDeviceSynchronize();  // complete the calculation on GPU before reading results from CPU
     auto error = conservatives();
     io::write_snapshot(num, body0.pos, body0.vel, body0.acc, body0.jrk, body0.idx, file.c_str(), present, time, error);
     guess_initial_dt(num, body0.pos, body0.vel, body0.acc, body0.jrk, num, body0.pos, body0.vel, body0.acc, body0.jrk, eps2, eta, body0.nxt);
@@ -675,7 +871,7 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
     while (present < snp_fin) {
       step++;
 
-      sort_particles(Ni, num, tag.get(), &body0, &body1);
+      sort_particles(Ni, num, tag0, tag1, &body0, &body1, temp_storage, temp_storage_size);
       std::tie(Ni, time_from_snapshot) = set_time_step(num, body0, time_from_snapshot, snapshot_interval);
       if (time_from_snapshot >= snapshot_interval) {
         present++;
@@ -700,6 +896,7 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
         previous = present;
         time_from_snapshot = AS_FP_M(0.0);
         time += snapshot_interval;
+        cudaDeviceSynchronize();  // complete the calculation on GPU before reading results from CPU
         io::write_snapshot(num, body0.pos, body0.vel, body0.acc, body0.jrk, body0.idx, file.c_str(), present, time, error);
         reset_particle_time(num, body0, snapshot_interval);
       }
@@ -707,8 +904,10 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
 #else   // BENCHMARK_MODE
   // launch benchmark
   auto timer = util::timer();
+  cudaDeviceSynchronize();  // complete the calculation on GPU before reading results from CPU
   timer.start();
   calc_acc(num, body0.pos, body0.vel, body0.acc, body0.jrk, num, body0.pos, body0.vel, eps2);
+  cudaDeviceSynchronize();  // complete the calculation on GPU before reading results from CPU
   timer.stop();
   auto elapsed = timer.get_elapsed_wall();
   int32_t iter = 1;
@@ -722,10 +921,12 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
 
     // re-execute the benchmark
     timer.clear();
+    cudaDeviceSynchronize();  // complete the calculation on GPU before reading results from CPU
     timer.start();
     for (int32_t loop = 0; loop < iter; loop++) {
       calc_acc(num, body0.pos, body0.vel, body0.acc, body0.jrk, num, body0.pos, body0.vel, eps2);
     }
+    cudaDeviceSynchronize();  // complete the calculation on GPU before reading results from CPU
     timer.stop();
     elapsed = timer.get_elapsed_wall();
   }
@@ -737,7 +938,7 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
     // memory deallocation
     release_Nbody_particles(
         pos0, vel0, acc0, jerk0, pres0, next0, id0,
-        pos1, vel1, acc1, jerk1, pres1, next1, id1, tag);
+        pos1, vel1, acc1, jerk1, pres1, next1, id1, tag0, tag1, temp_storage);
 
 #ifdef BENCHMARK_MODE
   }
