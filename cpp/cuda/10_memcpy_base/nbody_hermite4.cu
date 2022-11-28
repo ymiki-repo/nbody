@@ -502,42 +502,8 @@ __global__ void sort_particles_device(
 }
 
 ///
-/// @brief copy N-body particles on accelerator device
-///
-/// @param[in] src_pos position of N-body particles (source array)
-/// @param[in] src_vel velocity of N-body particles (source array)
-/// @param[in] src_acc acceleration of N-body particles (source array)
-/// @param[in] src_jrk jerk of N-body particles (source array)
-/// @param[in] src_prs present time of N-body particles (source array)
-/// @param[in] src_nxt next time of N-body particles (source array)
-/// @param[in] src_idx index of N-body particles (source array)
-/// @param[out] dst_pos position of N-body particles (destination array)
-/// @param[out] dst_vel velocity of N-body particles (destination array)
-/// @param[out] dst_acc acceleration of N-body particles (destination array)
-/// @param[out] dst_jrk jerk of N-body particles (destination array)
-/// @param[out] dst_prs present time of N-body particles (destination array)
-/// @param[out] dst_nxt next time of N-body particles (destination array)
-/// @param[out] dst_idx index of N-body particles (destination array)
-/// @param[in] head head index of N-body particles to be copied
-///
-__global__ void copy_particles_device(
-    const type::position *const src_pos, const type::velocity *const src_vel, const type::acceleration *const src_acc, const type::jerk *const src_jrk, const type::fp_m *const src_prs, const type::fp_m *const src_nxt, const type::int_idx *const src_idx,
-    type::position *__restrict dst_pos, type::velocity *__restrict dst_vel, type::acceleration *__restrict dst_acc, type::jerk *__restrict dst_jrk, type::fp_m *__restrict dst_prs, type::fp_m *__restrict dst_nxt, type::int_idx *__restrict dst_idx,
-    const type::int_idx head = 0U) {
-  const type::int_idx ii = blockIdx.x * blockDim.x + threadIdx.x + head;
-  dst_pos[ii] = src_pos[ii];
-  dst_vel[ii] = src_vel[ii];
-  dst_acc[ii] = src_acc[ii];
-  dst_jrk[ii] = src_jrk[ii];
-  dst_prs[ii] = src_prs[ii];
-  dst_nxt[ii] = src_nxt[ii];
-  dst_idx[ii] = src_idx[ii];
-}
-
-///
 /// @brief sort N-body particles
 ///
-/// @param[in] Ni number of i-particles
 /// @param[in] num total number of N-body particles
 /// @param[out] tag0_dev tentative array to sort N-body particles
 /// @param[out] tag1_dev tentative array to sort N-body particles
@@ -547,28 +513,18 @@ __global__ void copy_particles_device(
 /// @param[in] temp_storage tentative storage for CUB
 /// @param[in] temp_storage_size size of tentative storage for CUB
 ///
-static inline void sort_particles(const type::int_idx Ni, const type::int_idx num, type::int_idx *__restrict tag0_dev, type::int_idx *__restrict tag1_dev, type::nbody *__restrict src, type::nbody *__restrict dst, void *temp_storage, size_t &temp_storage_size) {
+static inline void sort_particles(const type::int_idx num, type::int_idx *__restrict tag0_dev, type::int_idx *__restrict tag1_dev, type::nbody *__restrict src, type::nbody *__restrict dst, void *temp_storage, size_t &temp_storage_size) {
   // sort particle time
-  reset_tag_device<<<BLOCKSIZE(Ni, NTHREADS), NTHREADS>>>(tag0_dev);
-  cub::DeviceRadixSort::SortPairs(temp_storage, temp_storage_size, (*src).nxt, (*dst).nxt, tag0_dev, tag1_dev, Ni);
+  reset_tag_device<<<BLOCKSIZE(num, NTHREADS), NTHREADS>>>(tag0_dev);
+  cub::DeviceRadixSort::SortPairs(temp_storage, temp_storage_size, (*src).nxt, (*dst).nxt, tag0_dev, tag1_dev, num);
 
   // sort N-body particles
-  sort_particles_device<<<BLOCKSIZE(Ni, NTHREADS), NTHREADS>>>((*src).pos, (*src).vel, (*src).acc, (*src).jrk, (*src).prs, (*src).idx, (*dst).pos, (*dst).vel, (*dst).acc, (*dst).jrk, (*dst).prs, (*dst).idx, tag1_dev);
+  sort_particles_device<<<BLOCKSIZE(num, NTHREADS), NTHREADS>>>((*src).pos, (*src).vel, (*src).acc, (*src).jrk, (*src).prs, (*src).idx, (*dst).pos, (*dst).vel, (*dst).acc, (*dst).jrk, (*dst).prs, (*dst).idx, tag1_dev);
 
-  if (Ni < (num >> 1)) {
-    // copy sorted particles
-    copy_particles_device<<<BLOCKSIZE(Ni, NTHREADS), NTHREADS>>>((*dst).pos, (*dst).vel, (*dst).acc, (*dst).jrk, (*dst).prs, (*dst).nxt, (*dst).idx, (*src).pos, (*src).vel, (*src).acc, (*src).jrk, (*src).prs, (*src).nxt, (*src).idx);
-  } else {
-    // copy unsorted particles (having longer time step)
-    if (Ni < num) {
-      copy_particles_device<<<BLOCKSIZE(num - Ni, NTHREADS), NTHREADS>>>((*src).pos, (*src).vel, (*src).acc, (*src).jrk, (*src).prs, (*src).nxt, (*src).idx, (*dst).pos, (*dst).vel, (*dst).acc, (*dst).jrk, (*dst).prs, (*dst).nxt, (*dst).idx, Ni);
-    }
-
-    // swap SoAs
-    const auto _tmp = *src;
-    *src = *dst;
-    *dst = _tmp;
-  }
+  // swap SoAs
+  const auto _tmp = *src;
+  *src = *dst;
+  *dst = _tmp;
 }
 
 ///
@@ -843,7 +799,6 @@ static inline void configure_gpu() {
   cudaFuncSetAttribute(predict_device, cudaFuncAttributePreferredSharedMemoryCarveout, 0);
   cudaFuncSetAttribute(correct_device, cudaFuncAttributePreferredSharedMemoryCarveout, 0);
   cudaFuncSetAttribute(sort_particles_device, cudaFuncAttributePreferredSharedMemoryCarveout, 0);
-  cudaFuncSetAttribute(copy_particles_device, cudaFuncAttributePreferredSharedMemoryCarveout, 0);
   cudaFuncSetAttribute(set_next_time_device, cudaFuncAttributePreferredSharedMemoryCarveout, 0);
   cudaFuncSetAttribute(reset_particle_time_device, cudaFuncAttributePreferredSharedMemoryCarveout, 0);
 #endif  // BENCHMARK_MODE

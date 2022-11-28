@@ -362,21 +362,20 @@ static inline void correct(
 ///
 /// @brief sort N-body particles
 ///
-/// @param[in] Ni number of i-particles
 /// @param[in] num total number of N-body particles
 /// @param tag tentative array to sort N-body particles
 /// @param[in] iacc acceleration of i-particles
 /// @param[in,out] src input N-body particles (to be sorted)
 /// @param[in] dst tentative SoA of N-body particles
 ///
-static inline void sort_particles(const type::int_idx Ni, const type::int_idx num, type::int_idx *__restrict tag, type::nbody *__restrict src, type::nbody *__restrict dst) {
+static inline void sort_particles(const type::int_idx num, type::int_idx *__restrict tag, type::nbody *__restrict src, type::nbody *__restrict dst) {
   // sort particle time
-  std::iota(tag, tag + Ni, 0U);
-  std::sort(tag, tag + Ni, [src](auto ii, auto jj) { return ((*src).nxt[ii] < (*src).nxt[jj]); });
+  std::iota(tag, tag + num, 0U);
+  std::sort(tag, tag + num, [src](auto ii, auto jj) { return ((*src).nxt[ii] < (*src).nxt[jj]); });
 
   // sort N-body particles
 #pragma omp parallel for
-  for (type::int_idx ii = 0U; ii < Ni; ii++) {
+  for (type::int_idx ii = 0U; ii < num; ii++) {
     const auto jj = tag[ii];
 
     (*dst).pos[ii] = (*src).pos[jj];
@@ -388,38 +387,10 @@ static inline void sort_particles(const type::int_idx Ni, const type::int_idx nu
     (*dst).idx[ii] = (*src).idx[jj];
   }
 
-  if (Ni < (num >> 1)) {
-    // copy sorted particles
-#pragma omp parallel for
-    for (type::int_idx ii = 0U; ii < Ni; ii++) {
-      (*src).pos[ii] = (*dst).pos[ii];
-      (*src).vel[ii] = (*dst).vel[ii];
-      (*src).acc[ii] = (*dst).acc[ii];
-      (*src).jrk[ii] = (*dst).jrk[ii];
-      (*src).prs[ii] = (*dst).prs[ii];
-      (*src).nxt[ii] = (*dst).nxt[ii];
-      (*src).idx[ii] = (*dst).idx[ii];
-    }
-  } else {
-    // copy unsorted particles (having longer time step)
-    if (Ni < num) {
-#pragma omp parallel for
-      for (type::int_idx ii = Ni; ii < num; ii++) {
-        (*dst).pos[ii] = (*src).pos[ii];
-        (*dst).vel[ii] = (*src).vel[ii];
-        (*dst).acc[ii] = (*src).acc[ii];
-        (*dst).jrk[ii] = (*src).jrk[ii];
-        (*dst).prs[ii] = (*src).prs[ii];
-        (*dst).nxt[ii] = (*src).nxt[ii];
-        (*dst).idx[ii] = (*src).idx[ii];
-      }
-    }
-
-    // swap SoAs
-    const auto _tmp = *src;
-    *src = *dst;
-    *dst = _tmp;
-  }
+  // swap SoAs
+  const auto _tmp = *src;
+  *src = *dst;
+  *dst = _tmp;
 }
 
 ///
@@ -687,7 +658,7 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
     while (present < snp_fin) {
       step++;
 
-      sort_particles(Ni, num, tag.get(), &body0, &body1);
+      sort_particles(num, tag.get(), &body0, &body1);
       std::tie(Ni, time_from_snapshot) = set_time_step(num, body0, time_from_snapshot, snapshot_interval);
       if (time_from_snapshot >= snapshot_interval) {
         present++;
