@@ -582,70 +582,54 @@ __global__ void set_next_time_device(type::fp_m *__restrict next, const type::fp
   next[ii] = time_next;
 }
 
-__global__ void set_dummy_time_device(type::fp_m *__restrict next) {
-  const type::int_idx ii = blockIdx.x * blockDim.x + threadIdx.x;
-  next[ii] = static_cast<type::fp_m>(ii);
-}
+// __global__ void set_dummy_time_device(type::fp_m *__restrict next) {
+//   const type::int_idx ii = blockIdx.x * blockDim.x + threadIdx.x;
+//   next[ii] = static_cast<type::fp_m>(ii);
+// }
 
 ///
 /// @brief set block time step
 ///
 /// @param[in] num total number of N-body particles
-/// @param[in,out] body N-body particles
+/// @param[in,out] body_dev N-body particles (device memory)
 /// @param[in] time_pres current time
 /// @param[in] time_sync time when all N-body particles to be synchronized
+/// @param[in,out] body N-body particles (host memory)
 ///
 /// @return number of i-particles and time after the orbit integration
 ///
-static inline auto set_time_step(const type::int_idx num, type::nbody &body, const type::fp_m time_pres, const type::fp_m time_sync) {
+static inline auto set_time_step(const type::int_idx num, type::nbody &body_dev, const type::fp_m time_pres, const type::fp_m time_sync, type::nbody &body) {
   // NOTE: porting below for-loop to GPU and then memcpy time_next and Ni from device to host will be faster (and simple); below is an example using cudaMemcpy2D()
   // copy nxt[0], nxt[NTHREADS], nxt[2 * NTHREADS], nxt[3 * NTHREADS], ...
   // FIXME: port below code to GPU
   // NOTE: tentative implementation from here
-  set_dummy_time_device<<<BLOCKSIZE(num, NTHREADS), NTHREADS>>>(body.nxt);
-  type::fp_m *time_host;
-  cudaMallocHost((void **)&time_host, num * sizeof(type::fp_m));
-  for (type::int_idx ii = 0; ii < num; ii++) {
-    time_host[ii] = -AS_FP_M(1.0);
-  }
-  cudaMemcpy2D(time_host, sizeof(type::fp_m), body.nxt, sizeof(type::fp_m) * NTHREADS, sizeof(type::fp_m), BLOCKSIZE(num, NTHREADS), cudaMemcpyDeviceToHost);
-  for (type::int_idx ii = 0; ii < num; ii++) {
-    std::cout << ii << "," << time_host[ii] << std::endl;
-  }
-  cudaFreeHost(time_host);
-  std::exit(EXIT_SUCCESS);
-  // NOTE: tentative implementation to here
-  //   __host__​cudaError_t cudaMemcpy2D ( void* dst, size_t dpitch, const void* src, size_t spitch, size_t width, size_t height, cudaMemcpyKind kind )
-  // Copies data between host and device.
-  // Parameters
-  // dst
-  // - Destination memory address
-  // dpitch
-  // - Pitch of destination memory
-  // src
-  // - Source memory address
-  // spitch
-  // - Pitch of source memory
-  // width
-  // - Width of matrix transfer (columns in bytes)
-  // height
-  // - Height of matrix transfer (rows)
-  // kind
-  // - Type of transfer
+  //   set_dummy_time_device<<<BLOCKSIZE(num, NTHREADS), NTHREADS>>>(body.nxt);
+  //   type::fp_m *time_host;
+  //   cudaMallocHost((void **)&time_host, num * sizeof(type::fp_m));
+  //   for (type::int_idx ii = 0; ii < num; ii++) {
+  //     time_host[ii] = -AS_FP_M(1.0);
+  //   }
+  const type::int_idx N_grp = BLOCKSIZE(num, NTHREADS);
+  cudaMemcpy2D(body.nxt, sizeof(type::fp_m), body_dev.nxt, sizeof(type::fp_m) * NTHREADS, sizeof(type::fp_m), N_grp, cudaMemcpyDeviceToHost);
+  //   for (type::int_idx ii = 0; ii < num; ii++) {
+  //     std::cout << ii << "," << time_host[ii] << std::endl;
+  //   }
+  //   cudaFreeHost(time_host);
+  //   std::exit(EXIT_SUCCESS);
   auto Ni = num;
   const auto time_next = std::min(time_sync, time_pres + std::exp2(std::floor(std::log2(body.nxt[0] - time_pres))));
   if (time_next < time_sync) {
     // adopt block time step
     const auto next_time_next = time_pres + std::exp2(AS_FP_M(1.0) + std::floor(std::log2(time_next - time_pres)));
-    for (type::int_idx ii = NTHREADS; ii < num; ii += NTHREADS) {
+    for (type::int_idx ii = 1U; ii < N_grp; ii++) {
       if (body.nxt[ii] >= next_time_next) {
-        Ni = ii;
+        Ni = ii * NTHREADS;
         break;
       }
     }
   }
 
-  set_next_time_device<<<BLOCKSIZE(Ni, NTHREADS), NTHREADS>>>(body.nxt, time_next);
+  set_next_time_device<<<BLOCKSIZE(Ni, NTHREADS), NTHREADS>>>(body_dev.nxt, time_next);
 
   return (std::make_pair(Ni, time_next));
 }
@@ -700,6 +684,7 @@ __global__ void clear_particles_device(type::position *__restrict pos, type::vel
 /// @param[out] vel_hst velocity of N-body particles (host memory)
 /// @param[out] acc_hst acceleration of N-body particles (host memory)
 /// @param[out] jrk_hst jerk of N-body particles (host memory)
+/// @param[out] nxt_hst next time of N-body particles (host memory)
 /// @param[out] idx_hst ID of N-body particles (host memory)
 /// @param[out] body0_dev SoA for N-body particles (device memory)
 /// @param[out] pos0_dev position of N-body particles (device memory)
@@ -723,7 +708,7 @@ __global__ void clear_particles_device(type::position *__restrict pos, type::vel
 /// @param[in] num number of N-body particles
 ///
 static inline void allocate_Nbody_particles(
-    type::nbody &body_hst, type::position **pos_hst, type::velocity **vel_hst, type::acceleration **acc_hst, type::jerk **jrk_hst, type::int_idx **idx_hst,
+    type::nbody &body_hst, type::position **pos_hst, type::velocity **vel_hst, type::acceleration **acc_hst, type::jerk **jrk_hst, type::fp_m **nxt_hst, type::int_idx **idx_hst,
     type::nbody &body0_dev, type::position **pos0_dev, type::velocity **vel0_dev, type::acceleration **acc0_dev, type::jerk **jrk0_dev, type::fp_m **prs0_dev, type::fp_m **nxt0_dev, type::int_idx **idx0_dev,
     type::nbody &body1_dev, type::position **pos1_dev, type::velocity **vel1_dev, type::acceleration **acc1_dev, type::jerk **jrk1_dev, type::fp_m **prs1_dev, type::fp_m **nxt1_dev, type::int_idx **idx1_dev,
     type::int_idx **tag0_dev, type::int_idx **tag1_dev, void **temp_storage, size_t &temp_storage_size, const type::int_idx num) {
@@ -735,6 +720,7 @@ static inline void allocate_Nbody_particles(
   cudaMallocHost((void **)vel_hst, size * sizeof(type::velocity));
   cudaMallocHost((void **)acc_hst, size * sizeof(type::acceleration));
   cudaMallocHost((void **)jrk_hst, size * sizeof(type::jerk));
+  cudaMallocHost((void **)nxt_hst, (size / NTHREADS) * sizeof(type::fp_m));
   cudaMallocHost((void **)idx_hst, size * sizeof(type::int_idx));
   cudaMalloc((void **)pos0_dev, size * sizeof(type::position));
   cudaMalloc((void **)vel0_dev, size * sizeof(type::velocity));
@@ -764,6 +750,10 @@ static inline void allocate_Nbody_particles(
     (*jrk_hst)[ii] = j_zero;
     (*idx_hst)[ii] = std::numeric_limits<type::int_idx>::max();
   }
+#pragma omp parallel for
+  for (size_t ii = 0U; ii < (size / NTHREADS); ii++) {
+    (*nxt_hst)[ii] = std::numeric_limits<type::fp_m>::max();
+  }
   clear_particles_device<<<BLOCKSIZE(size, NTHREADS), NTHREADS>>>(*pos0_dev, *vel0_dev, *acc0_dev, *jrk0_dev, *prs0_dev, *nxt0_dev, *idx0_dev);
   clear_particles_device<<<BLOCKSIZE(size, NTHREADS), NTHREADS>>>(*pos1_dev, *vel1_dev, *acc1_dev, *jrk1_dev, *prs1_dev, *nxt1_dev, *idx1_dev);
 
@@ -782,6 +772,7 @@ static inline void allocate_Nbody_particles(
   body_hst.vel = *vel_hst;
   body_hst.acc = *acc_hst;
   body_hst.jrk = *jrk_hst;
+  body_hst.nxt = *nxt_hst;
   body_hst.idx = *idx_hst;
   body0_dev.pos = *pos0_dev;
   body0_dev.vel = *vel0_dev;
@@ -802,26 +793,32 @@ static inline void allocate_Nbody_particles(
 ///
 /// @brief deallocate memory for N-body particles
 ///
-/// @param[out] pos0 position of N-body particles
-/// @param[out] vel0 velocity of N-body particles
-/// @param[out] acc0 acceleration of N-body particles
-/// @param[out] jrk0 jerk of N-body particles
-/// @param[out] prs0 present time of N-body particles
-/// @param[out] nxt0 next time of N-body particles
-/// @param[out] idx0 ID of N-body particles
-/// @param[out] pos1 position of N-body particles
-/// @param[out] vel1 velocity of N-body particles
-/// @param[out] acc1 acceleration of N-body particles
-/// @param[out] jrk1 jerk of N-body particles
-/// @param[out] prs1 present time of N-body particles
-/// @param[out] nxt1 next time of N-body particles
-/// @param[out] idx1 ID of N-body particles
-/// @param[out] tag0 tag to sort N-body particles
-/// @param[out] tag1 tag to sort N-body particles
+/// @param[out] pos_hst position of N-body particles
+/// @param[out] vel_hst velocity of N-body particles
+/// @param[out] acc_hst acceleration of N-body particles
+/// @param[out] jrk_hst jerk of N-body particles
+/// @param[out] nxt_hst next time of N-body particles
+/// @param[out] idx_hst ID of N-body particles
+/// @param[out] pos_hst position of N-body particles
+/// @param[out] vel0_dev velocity of N-body particles
+/// @param[out] acc0_dev acceleration of N-body particles
+/// @param[out] jrk0_dev jerk of N-body particles
+/// @param[out] prs0_dev present time of N-body particles
+/// @param[out] nxt0_dev next time of N-body particles
+/// @param[out] idx0_dev ID of N-body particles
+/// @param[out] pos1_dev position of N-body particles
+/// @param[out] vel1_dev velocity of N-body particles
+/// @param[out] acc1_dev acceleration of N-body particles
+/// @param[out] jrk1_dev jerk of N-body particles
+/// @param[out] prs1_dev present time of N-body particles
+/// @param[out] nxt1_dev next time of N-body particles
+/// @param[out] idx1_dev ID of N-body particles
+/// @param[out] tag0_dev tag to sort N-body particles
+/// @param[out] tag1_dev tag to sort N-body particles
 /// @param[out] temp_storage temporary storage for sorting on accelerator device
 ///
 static inline void release_Nbody_particles(
-    type::position *pos_hst, type::velocity *vel_hst, type::acceleration *acc_hst, type::jerk *jrk_hst, type::int_idx *idx_hst,
+    type::position *pos_hst, type::velocity *vel_hst, type::acceleration *acc_hst, type::jerk *jrk_hst, type::fp_m *nxt_hst, type::int_idx *idx_hst,
     type::position *pos0_dev, type::velocity *vel0_dev, type::acceleration *acc0_dev, type::jerk *jrk0_dev, type::fp_m *prs0_dev, type::fp_m *nxt0_dev, type::int_idx *idx0_dev,
     type::position *pos1_dev, type::velocity *vel1_dev, type::acceleration *acc1_dev, type::jerk *jrk1_dev, type::fp_m *prs1_dev, type::fp_m *nxt1_dev, type::int_idx *idx1_dev,
     type::int_idx *tag0_dev, type::int_idx *tag1_dev, void *temp_storage) {
@@ -829,6 +826,7 @@ static inline void release_Nbody_particles(
   cudaFreeHost(vel_hst);
   cudaFreeHost(acc_hst);
   cudaFreeHost(jrk_hst);
+  cudaFreeHost(nxt_hst);
   cudaFreeHost(idx_hst);
   cudaFree(pos0_dev);
   cudaFree(vel0_dev);
@@ -923,7 +921,7 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
     alignas(MEMORY_ALIGNMENT) type::acceleration *acc, *acc0_dev, *acc1_dev;
     alignas(MEMORY_ALIGNMENT) type::jerk *jerk, *jerk0_dev, *jerk1_dev;
     alignas(MEMORY_ALIGNMENT) type::fp_m *pres0_dev, *pres1_dev;
-    alignas(MEMORY_ALIGNMENT) type::fp_m *next0_dev, *next1_dev;
+    alignas(MEMORY_ALIGNMENT) type::fp_m *next, *next0_dev, *next1_dev;
     alignas(MEMORY_ALIGNMENT) type::int_idx *id, *id0_dev, *id1_dev;
     alignas(MEMORY_ALIGNMENT) type::int_idx *tag0_dev, *tag1_dev;
     alignas(MEMORY_ALIGNMENT) void *temp_storage;
@@ -932,7 +930,7 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
     auto body0_dev = type::nbody();
     auto body1_dev = type::nbody();
     allocate_Nbody_particles(
-        body, &pos, &vel, &acc, &jerk, &id,
+        body, &pos, &vel, &acc, &jerk, &next, &id,
         body0_dev, &pos0_dev, &vel0_dev, &acc0_dev, &jerk0_dev, &pres0_dev, &next0_dev, &id0_dev,
         body1_dev, &pos1_dev, &vel1_dev, &acc1_dev, &jerk1_dev, &pres1_dev, &next1_dev, &id1_dev,
         &tag0_dev, &tag1_dev, &temp_storage, temp_storage_size, num);
@@ -968,7 +966,7 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
       step++;
 
       sort_particles(Ni, num, tag0_dev, tag1_dev, &body0_dev, &body1_dev, temp_storage, temp_storage_size);
-      std::tie(Ni, time_from_snapshot) = set_time_step(num, body0_dev, time_from_snapshot, snapshot_interval);
+      std::tie(Ni, time_from_snapshot) = set_time_step(num, body0_dev, time_from_snapshot, snapshot_interval, body);
       if (time_from_snapshot >= snapshot_interval) {
         present++;
         time_from_snapshot = snapshot_interval;
@@ -1037,7 +1035,7 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
 
     // memory deallocation
     release_Nbody_particles(
-        pos, vel, acc, jerk, id,
+        pos, vel, acc, jerk, next, id,
         pos0_dev, vel0_dev, acc0_dev, jerk0_dev, pres0_dev, next0_dev, id0_dev,
         pos1_dev, vel1_dev, acc1_dev, jerk1_dev, pres1_dev, next1_dev, id1_dev,
         tag0_dev, tag1_dev, temp_storage);
