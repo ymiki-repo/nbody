@@ -903,7 +903,7 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
     while (present < snp_fin) {
       step++;
 
-      sort_particles(Ni, num, tag0_dev, tag1_dev, &body0_dev, &body1_dev, temp_storage, temp_storage_size);
+      sort_particles(num, tag0_dev, tag1_dev, &body0_dev, &body1_dev, temp_storage, temp_storage_size);
       std::tie(Ni, time_from_snapshot) = set_time_step(num, body0_dev, time_from_snapshot, snapshot_interval, body);
       if (time_from_snapshot >= snapshot_interval) {
         present++;

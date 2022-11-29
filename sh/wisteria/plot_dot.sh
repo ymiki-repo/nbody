@@ -2,7 +2,7 @@
 #PJM -L rscgrp=share-debug
 #PJM -L gpu=1
 #PJM --mpi proc=9
-#PJM -L elapse=0:15:00
+#PJM -L elapse=0:30:00
 #PJM -g ${PROJ}
 
 ROOT_DIR=/work/${PROJ}/$USER
@@ -32,6 +32,6 @@ MPI_PROC_NODE=${PJM_MPI_PROC}
 # tentative implementation: this script assumes single socket execution
 MPI_PROC_SOCKET=${PJM_MPI_PROC}
 
-mpiexech -machinefile ${PJM_O_NODEINF} -n ${PJM_MPI_PROC} sh/wrapper/mpi_matplotlib.sh --wrapper-Nprocs_node=${MPI_PROC_NODE} --wrapper-Nprocs_socket=${MPI_PROC_SOCKET} --wrapper-mpl_cfg_dir=$MPL_CFG_DIR julia jl/plot/dot.jl
+mpiexech -machinefile ${PJM_O_NODEINF} -n ${PJM_MPI_PROC} sh/wrapper/mpi_matplotlib.sh --wrapper-Nprocs_node=${MPI_PROC_NODE} --wrapper-Nprocs_socket=${MPI_PROC_SOCKET} --wrapper-mpl_cfg_dir=$MPL_CFG_DIR julia jl/plot/dot.jl ${OPTION}
 
 exit 0

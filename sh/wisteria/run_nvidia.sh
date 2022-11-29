@@ -1,7 +1,7 @@
 #!/bin/bash
 #PJM -L rscgrp=share-debug
 #PJM -L gpu=1
-#PJM -L elapse=0:15:00
+#PJM -L elapse=0:30:00
 #PJM -g gz00
 #PJM -s
 

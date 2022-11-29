@@ -4,7 +4,7 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
 
 ## 概要
 
-* 各種開発環境を用いたdirect N-body codeの実装比較・性能評価
+* 各種開発環境を用いたdirect $N$-body codeの実装比較・性能評価
   * C++実装：CPU向けのナイーブな実装（ベースライン実装）
   * CUDA C++による実装
   * OpenACCを用いたGPUオフローディング
@@ -185,8 +185,8 @@ make  # if ninja-build is missing
  * <details><summary>Wisteria/BDEC-01上での実行方法</summary>
 
    ```sh
-   pjsub --vset PROJ=gz00 -x PROJ=gz00 sh/wisteria/plot_error.sh # エネルギー保存などの時間進化を描画，gz00 をご自分の所属グループに編集してください（必須，2ヶ所あります）
-   pjsub --vset PROJ=gz00 -x PROJ=gz00 sh/wisteria/plot_dot.sh   # 粒子分布の時間進化を描画，gz00 をご自分の所属グループに編集してください（必須，2ヶ所あります）
+   pjsub --vset PROJ=gz00 -x PROJ=gz00,OPTION="--target=FILENAME" sh/wisteria/plot_error.sh # エネルギー保存などの時間進化を描画，gz00 をご自分の所属グループに編集してください（必須，2ヶ所あります）．FILENAMEは$N$体計算実行時に--file=として指定したものです
+   pjsub --vset PROJ=gz00 -x PROJ=gz00,OPTION="--target=FILENAME" sh/wisteria/plot_dot.sh   # 粒子分布の時間進化を描画，gz00 をご自分の所属グループに編集してください（必須，2ヶ所あります）．FILENAMEは$N$体計算実行時に--file=として指定したものです
    ```
 
    </details>
