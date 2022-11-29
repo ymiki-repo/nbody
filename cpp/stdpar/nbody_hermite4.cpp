@@ -37,6 +37,9 @@ constexpr type::flt_acc newton = AS_FLT_ACC(1.0);  ///< gravitational constant
 constexpr type::int_idx NTHREADS = 256U;
 #endif  // NTHREADS
 
+// FIXME: remove the below macro (port as much as function to GPU)
+#define EXEC_SMALL_FUNC_ON_HOST
+
 ///
 /// @brief calculate gravitational acceleration
 ///
@@ -365,20 +368,32 @@ static inline void correct(
 static inline void sort_particles(const type::int_idx num, type::int_idx *__restrict tag, type::nbody *__restrict src, type::nbody *__restrict dst) {
   // sort particle time
   std::iota(tag, tag + num, 0U);
-  std::sort(std::execution::par, tag, tag + num, [src](auto ii, auto jj) { return ((*src).nxt[ii] < (*src).nxt[jj]); });
+  std::sort(
+#ifndef EXEC_SMALL_FUNC_ON_HOST
+      std::execution::par,
+#else   // EXEC_SMALL_FUNC_ON_HOST
+      std::execution::seq,
+#endif  // EXEC_SMALL_FUNC_ON_HOST
+      tag, tag + num, [src](auto ii, auto jj) { return ((*src).nxt[ii] < (*src).nxt[jj]); });
 
   // sort N-body particles
-  std::for_each_n(std::execution::par, boost::iterators::counting_iterator<type::int_idx>(0U), num, [=](const type::int_idx ii) {
-    const auto jj = tag[ii];
+  std::for_each_n(
+#ifndef EXEC_SMALL_FUNC_ON_HOST
+      std::execution::par,
+#else   // EXEC_SMALL_FUNC_ON_HOST
+      std::execution::seq,
+#endif  // EXEC_SMALL_FUNC_ON_HOST
+      boost::iterators::counting_iterator<type::int_idx>(0U), num, [=](const type::int_idx ii) {
+        const auto jj = tag[ii];
 
-    (*dst).pos[ii] = (*src).pos[jj];
-    (*dst).vel[ii] = (*src).vel[jj];
-    (*dst).acc[ii] = (*src).acc[jj];
-    (*dst).jrk[ii] = (*src).jrk[jj];
-    (*dst).prs[ii] = (*src).prs[jj];
-    (*dst).nxt[ii] = (*src).nxt[jj];
-    (*dst).idx[ii] = (*src).idx[jj];
-  });
+        (*dst).pos[ii] = (*src).pos[jj];
+        (*dst).vel[ii] = (*src).vel[jj];
+        (*dst).acc[ii] = (*src).acc[jj];
+        (*dst).jrk[ii] = (*src).jrk[jj];
+        (*dst).prs[ii] = (*src).prs[jj];
+        (*dst).nxt[ii] = (*src).nxt[jj];
+        (*dst).idx[ii] = (*src).idx[jj];
+      });
 
   // swap SoAs
   const auto _tmp = *src;
@@ -411,9 +426,15 @@ static inline auto set_time_step(const type::int_idx num, type::nbody &body, con
   }
 
   // unify the next time within the integrated block
-  std::for_each_n(std::execution::par, boost::iterators::counting_iterator<type::int_idx>(0U), num, [=](const type::int_idx ii) {
-    body.nxt[ii] = time_next;
-  });
+  std::for_each_n(
+#ifndef EXEC_SMALL_FUNC_ON_HOST
+      std::execution::par,
+#else   // EXEC_SMALL_FUNC_ON_HOST
+      std::execution::seq,
+#endif  // EXEC_SMALL_FUNC_ON_HOST
+      boost::iterators::counting_iterator<type::int_idx>(0U), num, [=](const type::int_idx ii) {
+        body.nxt[ii] = time_next;
+      });
 
   return (std::make_pair(Ni, time_next));
 }
@@ -426,10 +447,16 @@ static inline auto set_time_step(const type::int_idx num, type::nbody &body, con
 /// @param[in] snapshot_interval current time
 ///
 static inline void reset_particle_time(const type::int_idx num, type::nbody &body, const type::fp_m snapshot_interval) {
-  std::for_each_n(std::execution::par, boost::iterators::counting_iterator<type::int_idx>(0U), num, [=](const type::int_idx ii) {
-    body.prs[ii] = AS_FP_M(0.0);
-    body.nxt[ii] -= snapshot_interval;
-  });
+  std::for_each_n(
+#ifndef EXEC_SMALL_FUNC_ON_HOST
+      std::execution::par,
+#else   // EXEC_SMALL_FUNC_ON_HOST
+      std::execution::seq,
+#endif  // EXEC_SMALL_FUNC_ON_HOST
+      boost::iterators::counting_iterator<type::int_idx>(0U), num, [=](const type::int_idx ii) {
+        body.prs[ii] = AS_FP_M(0.0);
+        body.nxt[ii] -= snapshot_interval;
+      });
 }
 #endif  // BENCHMARK_MODE
 

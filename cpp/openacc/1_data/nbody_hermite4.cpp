@@ -34,6 +34,9 @@ constexpr type::flt_acc newton = AS_FLT_ACC(1.0);  ///< gravitational constant
 constexpr type::int_idx NTHREADS = 256U;
 #endif  // NTHREADS
 
+// FIXME: remove the below macro (port as much as function to GPU)
+#define EXEC_SMALL_FUNC_ON_HOST
+
 ///
 /// @brief calculate gravitational acceleration
 ///
@@ -371,14 +374,18 @@ static inline void correct(
 ///
 static inline void sort_particles(const type::int_idx num, type::int_idx *__restrict tag, type::nbody *__restrict src, type::nbody *__restrict dst) {
   // sort particle time
-  std::iota(tag, tag + num, 0U);
 #pragma acc update host(src->nxt [0:num])
+  std::iota(tag, tag + num, 0U);
   std::sort(tag, tag + num, [src](auto ii, auto jj) { return ((*src).nxt[ii] < (*src).nxt[jj]); });
-#pragma acc update device(tag [0:num])
 
   // sort N-body particles
+#ifndef EXEC_SMALL_FUNC_ON_HOST
+#pragma acc update device(tag [0:num])
 #pragma acc kernels
 #pragma acc loop independent
+#else  // EXEC_SMALL_FUNC_ON_HOST
+#pragma acc update host(src->pos [0:num], src->vel [0:num], src->acc [0:num], src->jrk [0:num], src->prs [0:num], src->idx [0:num])
+#endif  // EXEC_SMALL_FUNC_ON_HOST
   for (type::int_idx ii = 0U; ii < num; ii++) {
     const auto jj = tag[ii];
 
@@ -390,6 +397,9 @@ static inline void sort_particles(const type::int_idx num, type::int_idx *__rest
     (*dst).nxt[ii] = (*src).nxt[jj];
     (*dst).idx[ii] = (*src).idx[jj];
   }
+#ifdef EXEC_SMALL_FUNC_ON_HOST
+#pragma acc update device(dst->pos [0:num], dst->vel [0:num], dst->acc [0:num], dst->jrk [0:num], dst->prs [0:num], dst->nxt [0:num], dst->idx [0:num])
+#endif  // EXEC_SMALL_FUNC_ON_HOST
 
   // swap SoAs
   const auto _tmp = *src;
@@ -423,11 +433,16 @@ static inline auto set_time_step(const type::int_idx num, type::nbody &body, con
   }
 
   // unify the next time within the integrated block
+#ifndef EXEC_SMALL_FUNC_ON_HOST
 #pragma acc kernels
 #pragma acc loop independent
+#endif  // EXEC_SMALL_FUNC_ON_HOST
   for (type::int_idx ii = 0U; ii < Ni; ii++) {
     body.nxt[ii] = time_next;
   }
+#ifdef EXEC_SMALL_FUNC_ON_HOST
+#pragma acc update device(body.nxt [0:num])
+#endif  // EXEC_SMALL_FUNC_ON_HOST
 
   return (std::make_pair(Ni, time_next));
 }
@@ -440,12 +455,19 @@ static inline auto set_time_step(const type::int_idx num, type::nbody &body, con
 /// @param[in] snapshot_interval current time
 ///
 static inline void reset_particle_time(const type::int_idx num, type::nbody &body, const type::fp_m snapshot_interval) {
+#ifndef EXEC_SMALL_FUNC_ON_HOST
 #pragma acc kernels
 #pragma acc loop independent
+#else  // EXEC_SMALL_FUNC_ON_HOST
+#pragma acc update host(body.nxt [0:num])
+#endif  // EXEC_SMALL_FUNC_ON_HOST
   for (type::int_idx ii = 0U; ii < num; ii++) {
     body.prs[ii] = AS_FP_M(0.0);
     body.nxt[ii] -= snapshot_interval;
   }
+#ifdef EXEC_SMALL_FUNC_ON_HOST
+#pragma acc update device(body.prs [0:num], body.nxt [0:num])
+#endif  // EXEC_SMALL_FUNC_ON_HOST
 }
 #endif  // BENCHMARK_MODE
 
@@ -640,11 +662,11 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
         body0, pos0, vel0, acc0, jerk0, pres0, next0, id0,
         body1, pos1, vel1, acc1, jerk1, pres1, next1, id1, tag, num);
 
-    // workaround for data directives
 #pragma acc enter data create(body0.pos [0:num], body0.vel [0:num], body0.acc [0:num], body0.jrk [0:num], body0.prs [0:num], body0.nxt [0:num], body0.idx [0:num])
 #pragma acc enter data create(body1.pos [0:num], body1.vel [0:num], body1.acc [0:num], body1.jrk [0:num], body1.prs [0:num], body1.nxt [0:num], body1.idx [0:num])
+    // workaround for data directives
     auto tag_ptr = tag.get();
-#pragma acc enter data create(tag_ptr)
+#pragma acc enter data create(tag_ptr [0:num])
 
     // generate initial-condition
     init::set_uniform_sphere(num, body0.pos, body0.vel, M_tot, rad, virial, CAST2VEL(newton));
@@ -736,7 +758,7 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
     // memory deallocation
 #pragma acc exit data delete (body0.pos [0:num], body0.vel [0:num], body0.acc [0:num], body0.jrk [0:num], body0.prs [0:num], body0.nxt [0:num], body0.idx [0:num])
 #pragma acc exit data delete (body1.pos [0:num], body1.vel [0:num], body1.acc [0:num], body1.jrk [0:num], body1.prs [0:num], body1.nxt [0:num], body1.idx [0:num])
-#pragma acc exit data delete (tag_ptr)
+#pragma acc exit data delete (tag_ptr [0:num])
     release_Nbody_particles(
         pos0, vel0, acc0, jerk0, pres0, next0, id0,
         pos1, vel1, acc1, jerk1, pres1, next1, id1, tag);
