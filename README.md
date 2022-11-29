@@ -116,6 +116,59 @@ make  # if ninja-build is missing
 * output files are dat/FILENAME_snp*.h5 and dat/FILENAME_snp*.xdmf when BENCHMARK_NODE is OFF
 * log file is log/FILENAME_run.csv
 
+## 可視化のための事前準備（Python および Julia を使用する場合）
+
+1. Matplotlib環境の構築
+   * <details><summary>Wisteria/BDEC-01 (Aquarius) 向けの環境構築</summary>
+
+     ```sh
+     mkdir -p /work/{YOUR_GROUP}/$USER/opt/$(uname -m) # 以下，{YOUR_GROUP} は全てご自分の所属グループに置き換えてください
+     cp -r modules /work/{YOUR_GROUP}/$USER/opt/
+     # /work/{YOUR_GROUP}/$USER/opt/anyenv 14行目の gz00 をご自分の所属グループに編集してください（必須）
+     cd /work/{YOUR_GROUP}/$USER/opt/$(uname -m) # Aquarius（x86_64環境）用の環境と，Odyssey（aarch64環境）用の環境を分離して構築できるようにするための工夫
+     git clone https://github.com/anyenv/anyenv
+     module use /work/{YOUR_GROUP}/$USER/opt/modules
+     module load anyenv
+     anyenv install --init # y/N を聞かれるので，y とする
+     git clone https://github.com/znz/anyenv-update.git $(anyenv root)/plugins/anyenv-update
+     anyenv update # このコマンドによって，後で導入する pyenv なども update されるようになる
+     anyenv install pyenv
+     pyenv install -l | grep miniconda3 # インストールできるバージョンを確認（miniforge3でも良い）
+     pyenv install miniconda3-4.7.12
+     pyenv rehash
+     pyenv global miniconda3-4.7.12
+     pyenv versions
+     cd /work/{YOUR_GROUP}/$USER/opt/modules
+     cd miniconda3 # miniforge3 をインストールした場合にはフォルダ名を miniforge3 に mv した上で cd してください
+     ln -s .generic 4.7.12 # これは v4.7.12 をインストールした場合です
+     touch /work/{YOUR_GROUP}/$USER/.condarc
+     mkdir /work/{YOUR_GROUP}/$USER/.conda
+     mv ~/.condarc ~/.condarc.bak # もしあれば
+     mv ~/.conda ~/.conda.bak # もしあれば
+     ln -s /{YOUR_GROUP}/$USER/.conda* ~/
+     conda config --env --remove channels defaults
+     conda config --env --add channels conda-forge
+     # お好みのエディタで /work/{YOUR_GROUP}/$USER/.config/$(uname -m)/.condarc を開き，下記2行を追記（オプション，容量を節約したい場合）
+     # allow_softlinks: true
+     # always_softlink: true
+     conda update --all
+     conda install matplotlib
+     ```
+
+     </details>
+
+1. Julia環境の構築
+   * <details><summary>Wisteria/BDEC-01上での環境構築</summary>
+
+     ```sh
+     # 1. sh/wisteria/setup_julia.sh 5行目の gz00 をご自分の所属グループに編集してください（必須）
+     # 2. sh/wisteria/setup_julia.sh 7行目の gz00 をご自分の所属グループに編集してください（必須）
+     # 3. sh/wisteria/setup_julia.sh 15-18行目の Python 環境の設定をご自分の環境に合わせて編集してください（上記設定の通りにPython環境を構築した場合にはこの手順は不要）
+     pjsub -x PROJ=gz00 sh/wisteria/setup_julia.sh # gz00 をご自分の所属グループに編集してください（必須）
+     ```
+
+     </details>
+
 <!-- ## How to check results
 
 ```sh

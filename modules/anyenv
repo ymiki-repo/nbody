@@ -1,0 +1,37 @@
+#%Module
+proc ModulesHelp { } {
+	global module_name
+	puts stderr "How to set environment:"
+	puts stderr "    $ module load $module_name"
+}
+
+set module_name [module-info name]
+regsub (/.*$) $module_name "" module
+module-whatis "$module"
+
+conflict $module
+
+set root /work/gz00/[getenv USER]
+set path $root/opt/[uname machine]/$module
+
+# confirmation
+set target $path/bin/$module
+if { [module-info mode load] && [file exists $target] != 1 } {
+	puts stderr "not loaded: $module_name ($target is missing)"
+	exit 1
+}
+
+# set environmental variables
+setenv XDG_CONFIG_HOME     $root/.config/[uname machine]
+setenv ANYENV_ROOT     $path
+prepend-path	PATH	$path/bin
+
+# settings for Python
+set pyenv_path $path/envs/pyenv
+setenv PYENV_ROOT     $pyenv_path
+prepend-path	PATH	$pyenv_path/shims:$pyenv_path/bin
+
+# # settings for Ruby
+# set rbenv_path $path/envs/rbenv
+# setenv RBENV_ROOT     $rbenv_path
+# prepend-path	PATH	$rbenv_path/shims:$rbenv_path/bin
