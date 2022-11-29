@@ -550,6 +550,7 @@ __global__ void set_next_time_device(type::fp_m *__restrict next, const type::fp
 /// @return number of i-particles and time after the orbit integration
 ///
 static inline auto set_time_step(const type::int_idx num, type::nbody &body, const type::fp_m time_pres, const type::fp_m time_sync) {
+  cudaDeviceSynchronize();  // complete the computation on GPU before reading results from CPU
   auto Ni = num;
   const auto time_next = std::min(time_sync, time_pres + std::exp2(std::floor(std::log2(body.nxt[0] - time_pres))));
   if (time_next < time_sync) {
@@ -658,8 +659,8 @@ static inline void allocate_Nbody_particles(
     (*jrk1)[ii] = j_zero;
     (*prs0)[ii] = AS_FP_M(0.0);
     (*prs1)[ii] = AS_FP_M(0.0);
-    (*nxt0)[ii] = AS_FP_M(0.0);
-    (*nxt1)[ii] = AS_FP_M(0.0);
+    (*nxt0)[ii] = std::numeric_limits<type::fp_m>::max();
+    (*nxt1)[ii] = std::numeric_limits<type::fp_m>::max();
     (*idx0)[ii] = std::numeric_limits<type::int_idx>::max();
     (*idx1)[ii] = std::numeric_limits<type::int_idx>::max();
   }
@@ -802,22 +803,14 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
 #endif  // BENCHMARK_MODE
 
     // memory allocation
-    alignas(MEMORY_ALIGNMENT) type::position *pos0;
-    alignas(MEMORY_ALIGNMENT) type::position *pos1;
-    alignas(MEMORY_ALIGNMENT) type::velocity *vel0;
-    alignas(MEMORY_ALIGNMENT) type::velocity *vel1;
-    alignas(MEMORY_ALIGNMENT) type::acceleration *acc0;
-    alignas(MEMORY_ALIGNMENT) type::acceleration *acc1;
-    alignas(MEMORY_ALIGNMENT) type::jerk *jerk0;
-    alignas(MEMORY_ALIGNMENT) type::jerk *jerk1;
-    alignas(MEMORY_ALIGNMENT) type::fp_m *pres0;
-    alignas(MEMORY_ALIGNMENT) type::fp_m *pres1;
-    alignas(MEMORY_ALIGNMENT) type::fp_m *next0;
-    alignas(MEMORY_ALIGNMENT) type::fp_m *next1;
-    alignas(MEMORY_ALIGNMENT) type::int_idx *id0;
-    alignas(MEMORY_ALIGNMENT) type::int_idx *id1;
-    alignas(MEMORY_ALIGNMENT) type::int_idx *tag0;
-    alignas(MEMORY_ALIGNMENT) type::int_idx *tag1;
+    alignas(MEMORY_ALIGNMENT) type::position *pos0, *pos1;
+    alignas(MEMORY_ALIGNMENT) type::velocity *vel0, *vel1;
+    alignas(MEMORY_ALIGNMENT) type::acceleration *acc0, *acc1;
+    alignas(MEMORY_ALIGNMENT) type::jerk *jerk0, *jerk1;
+    alignas(MEMORY_ALIGNMENT) type::fp_m *pres0, *pres1;
+    alignas(MEMORY_ALIGNMENT) type::fp_m *next0, *next1;
+    alignas(MEMORY_ALIGNMENT) type::int_idx *id0, *id1;
+    alignas(MEMORY_ALIGNMENT) type::int_idx *tag0, *tag1;
     alignas(MEMORY_ALIGNMENT) void *temp_storage;
     size_t temp_storage_size = 0U;
     auto body0 = type::nbody();
@@ -828,6 +821,10 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
 
     // generate initial-condition
     init::set_uniform_sphere(num, body0.pos, body0.vel, M_tot, rad, virial, CAST2VEL(newton));
+#pragma omp parallel for
+    for (type::int_idx ii = 0U; ii < num; ii++) {
+      body0.idx[ii] = ii;
+    }
 
 #ifndef BENCHMARK_MODE
     // write the first snapshot
@@ -840,7 +837,7 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
              body0.pos, eps_inv
 #endif  // CALCULATE_POTENTIAL
     );
-    cudaDeviceSynchronize();  // complete the calculation on GPU before reading results from CPU
+    cudaDeviceSynchronize();  // complete the computation on GPU before reading results from CPU
     auto error = conservatives();
     io::write_snapshot(num, body0.pos, body0.vel, body0.acc, body0.jrk, body0.idx, file.c_str(), present, time, error);
     guess_initial_dt(num, body0.pos, body0.vel, body0.acc, body0.jrk, num, body0.pos, body0.vel, body0.acc, body0.jrk, eps2, eta, body0.nxt);
@@ -873,7 +870,7 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
         previous = present;
         time_from_snapshot = AS_FP_M(0.0);
         time += snapshot_interval;
-        cudaDeviceSynchronize();  // complete the calculation on GPU before reading results from CPU
+        cudaDeviceSynchronize();  // complete the computation on GPU before reading results from CPU
         io::write_snapshot(num, body0.pos, body0.vel, body0.acc, body0.jrk, body0.idx, file.c_str(), present, time, error);
         reset_particle_time(num, body0, snapshot_interval);
       }
@@ -881,10 +878,10 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
 #else   // BENCHMARK_MODE
   // launch benchmark
   auto timer = util::timer();
-  cudaDeviceSynchronize();  // complete the calculation on GPU before reading results from CPU
+  cudaDeviceSynchronize();  // complete the computation on GPU before reading results from CPU
   timer.start();
   calc_acc(num, body0.pos, body0.vel, body0.acc, body0.jrk, num, body0.pos, body0.vel, eps2);
-  cudaDeviceSynchronize();  // complete the calculation on GPU before reading results from CPU
+  cudaDeviceSynchronize();  // complete the computation on GPU before reading results from CPU
   timer.stop();
   auto elapsed = timer.get_elapsed_wall();
   int32_t iter = 1;
@@ -898,12 +895,12 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
 
     // re-execute the benchmark
     timer.clear();
-    cudaDeviceSynchronize();  // complete the calculation on GPU before reading results from CPU
+    cudaDeviceSynchronize();  // complete the computation on GPU before reading results from CPU
     timer.start();
     for (int32_t loop = 0; loop < iter; loop++) {
       calc_acc(num, body0.pos, body0.vel, body0.acc, body0.jrk, num, body0.pos, body0.vel, eps2);
     }
-    cudaDeviceSynchronize();  // complete the calculation on GPU before reading results from CPU
+    cudaDeviceSynchronize();  // complete the computation on GPU before reading results from CPU
     timer.stop();
     elapsed = timer.get_elapsed_wall();
   }

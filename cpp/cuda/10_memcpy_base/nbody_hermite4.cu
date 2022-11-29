@@ -876,7 +876,7 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
     // generate initial-condition
     init::set_uniform_sphere(num, body.pos, body.vel, M_tot, rad, virial, CAST2VEL(newton));
 #pragma omp parallel for
-    for (type::int_idx ii = 0; ii < num; ii++) {
+    for (type::int_idx ii = 0U; ii < num; ii++) {
       body.idx[ii] = ii;
     }
     cudaMemcpy(body0_dev.pos, body.pos, num * sizeof(type::position), cudaMemcpyHostToDevice);
