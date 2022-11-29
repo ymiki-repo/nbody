@@ -375,8 +375,8 @@ static inline void sort_particles(const type::int_idx num, type::int_idx *__rest
   std::sort(tag, tag + num, [src](auto ii, auto jj) { return ((*src).nxt[ii] < (*src).nxt[jj]); });
 
   // sort N-body particles
-#pragma acc kernels
-#pragma acc loop independent
+  // #pragma acc kernels
+  // #pragma acc loop independent
   for (type::int_idx ii = 0U; ii < num; ii++) {
     const auto jj = tag[ii];
 
@@ -420,8 +420,8 @@ static inline auto set_time_step(const type::int_idx num, type::nbody &body, con
   }
 
   // unify the next time within the integrated block
-#pragma acc kernels
-#pragma acc loop independent
+  // #pragma acc kernels
+  // #pragma acc loop independent
   for (type::int_idx ii = 0U; ii < Ni; ii++) {
     body.nxt[ii] = time_next;
   }
@@ -437,8 +437,8 @@ static inline auto set_time_step(const type::int_idx num, type::nbody &body, con
 /// @param[in] snapshot_interval current time
 ///
 static inline void reset_particle_time(const type::int_idx num, type::nbody &body, const type::fp_m snapshot_interval) {
-#pragma acc kernels
-#pragma acc loop independent
+  // #pragma acc kernels
+  // #pragma acc loop independent
   for (type::int_idx ii = 0U; ii < num; ii++) {
     body.prs[ii] = AS_FP_M(0.0);
     body.nxt[ii] -= snapshot_interval;
@@ -506,8 +506,8 @@ static inline void allocate_Nbody_particles(
     jrk1[ii] = j_zero;
     prs0[ii] = AS_FP_M(0.0);
     prs1[ii] = AS_FP_M(0.0);
-    nxt0[ii] = AS_FP_M(0.0);
-    nxt1[ii] = AS_FP_M(0.0);
+    nxt0[ii] = std::numeric_limits<type::fp_m>::max();
+    nxt1[ii] = std::numeric_limits<type::fp_m>::max();
     idx0[ii] = std::numeric_limits<type::int_idx>::max();
     idx1[ii] = std::numeric_limits<type::int_idx>::max();
     tag[ii] = std::numeric_limits<type::int_idx>::max();
@@ -639,6 +639,10 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
 
     // generate initial-condition
     init::set_uniform_sphere(num, body0.pos, body0.vel, M_tot, rad, virial, CAST2VEL(newton));
+#pragma omp parallel for
+    for (type::int_idx ii = 0U; ii < num; ii++) {
+      body0.idx[ii] = ii;
+    }
 
 #ifndef BENCHMARK_MODE
     // write the first snapshot

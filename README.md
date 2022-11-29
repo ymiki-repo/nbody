@@ -116,7 +116,8 @@ make  # if ninja-build is missing
 * output files are dat/FILENAME_snp*.h5 and dat/FILENAME_snp*.xdmf when BENCHMARK_NODE is OFF
 * log file is log/FILENAME_run.csv
 
-## 可視化のための事前準備（Python および Julia を使用する場合）
+<!-- MEMO: Julia script does not work on Wisteria/BDEC-01 (perhaps, the reason is version of installed TexLive) -->
+<!-- ## 可視化のための事前準備（Python および Julia を使用する場合）
 
 1. Matplotlib環境の構築
    * <details><summary>Wisteria/BDEC-01 (Aquarius) 向けの環境構築</summary>
@@ -201,7 +202,7 @@ make  # if ninja-build is missing
 
    </details>
 
-* check the output figures in fig/
+* check the output figures in fig/ -->
 
 ## Profiling
 

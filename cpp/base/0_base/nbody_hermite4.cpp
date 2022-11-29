@@ -494,8 +494,8 @@ static inline void allocate_Nbody_particles(
     jrk1[ii] = j_zero;
     prs0[ii] = AS_FP_M(0.0);
     prs1[ii] = AS_FP_M(0.0);
-    nxt0[ii] = AS_FP_M(0.0);
-    nxt1[ii] = AS_FP_M(0.0);
+    nxt0[ii] = std::numeric_limits<type::fp_m>::max();
+    nxt1[ii] = std::numeric_limits<type::fp_m>::max();
     idx0[ii] = std::numeric_limits<type::int_idx>::max();
     idx1[ii] = std::numeric_limits<type::int_idx>::max();
     tag[ii] = std::numeric_limits<type::int_idx>::max();
@@ -627,6 +627,10 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
 
     // generate initial-condition
     init::set_uniform_sphere(num, body0.pos, body0.vel, M_tot, rad, virial, CAST2VEL(newton));
+#pragma omp parallel for
+    for (type::int_idx ii = 0U; ii < num; ii++) {
+      body0.idx[ii] = ii;
+    }
 
 #ifndef BENCHMARK_MODE
     // write the first snapshot

@@ -402,7 +402,6 @@ static inline auto set_time_step(const type::int_idx num, type::nbody &body, con
   if (time_next < time_sync) {
     // adopt block time step
     const auto next_time_next = time_pres + std::exp2(AS_FP_M(1.0) + std::floor(std::log2(time_next - time_pres)));
-    // TODO: port the below for-loop to GPU
     for (type::int_idx ii = NTHREADS; ii < num; ii += NTHREADS) {
       if (body.nxt[ii] >= next_time_next) {
         Ni = ii;
@@ -494,8 +493,8 @@ static inline void allocate_Nbody_particles(
     jrk1[ii] = j_zero;
     prs0[ii] = AS_FP_M(0.0);
     prs1[ii] = AS_FP_M(0.0);
-    nxt0[ii] = AS_FP_M(0.0);
-    nxt1[ii] = AS_FP_M(0.0);
+    nxt0[ii] = std::numeric_limits<type::fp_m>::max();
+    nxt1[ii] = std::numeric_limits<type::fp_m>::max();
     idx0[ii] = std::numeric_limits<type::int_idx>::max();
     idx1[ii] = std::numeric_limits<type::int_idx>::max();
     tag[ii] = std::numeric_limits<type::int_idx>::max();
@@ -627,6 +626,10 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
 
     // generate initial-condition
     init::set_uniform_sphere(num, body0.pos, body0.vel, M_tot, rad, virial, CAST2VEL(newton));
+#pragma omp parallel for
+    for (type::int_idx ii = 0U; ii < num; ii++) {
+      body0.idx[ii] = ii;
+    }
 
 #ifndef BENCHMARK_MODE
     // write the first snapshot

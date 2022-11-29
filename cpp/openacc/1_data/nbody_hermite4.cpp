@@ -50,7 +50,8 @@ constexpr type::int_idx NTHREADS = 256U;
 static inline void calc_acc(
     const type::int_idx Ni, const type::position *const ipos, const type::velocity *const ivel, type::acceleration *__restrict iacc, type::jerk *__restrict ijrk,
     const type::int_idx Nj, const type::position *const jpos, const type::velocity *const jvel, const type::fp_l eps2) {
-#pragma omp target teams loop
+#pragma acc kernels
+#pragma acc loop independent vector(NTHREADS)
   for (type::int_idx ii = 0U; ii < Ni; ii++) {
     // initialization
     const auto pi = ipos[ii];
@@ -113,7 +114,8 @@ static inline void trim_acc(const type::int_idx Ni, type::acceleration *__restri
                             const type::position *const pos, const type::flt_acc eps_inv
 #endif  // CALCULATE_POTENTIAL
 ) {
-#pragma omp target teams loop
+#pragma acc kernels
+#pragma acc loop independent
   for (type::int_idx ii = 0U; ii < Ni; ii++) {
     // initialization
     auto ai = acc[ii];
@@ -157,7 +159,8 @@ static inline void guess_initial_dt(
     const type::int_idx Ni, const type::position *const ipos, const type::velocity *const ivel, const type::acceleration *const iacc, const type::jerk *const ijrk,
     const type::int_idx Nj, const type::position *const jpos, const type::velocity *const jvel, const type::acceleration *const jacc, const type::jerk *const jjrk,
     const type::fp_l eps2, const type::fp_m eta, type::fp_m *__restrict dt) {
-#pragma omp target teams loop
+#pragma acc kernels
+#pragma acc loop independent vector(NTHREADS)
   for (type::int_idx ii = 0U; ii < Ni; ii++) {
     // initialization
     const auto p_i = ipos[ii];
@@ -248,7 +251,8 @@ static inline void guess_initial_dt(
 static inline void predict(
     const type::int_idx jnum, const type::fp_m *const t_pres, const type::position *const pos0, const type::velocity *const vel0, const type::acceleration *const acc0, const type::jerk *const jrk0,
     type::position *__restrict pos1, type::velocity *__restrict vel1, const type::fp_m t_next) {
-#pragma omp target teams loop
+#pragma acc kernels
+#pragma acc loop independent
   for (type::int_idx jj = 0U; jj < jnum; jj++) {
     // set time step for this particle
     const auto dt = t_next - t_pres[jj];
@@ -296,7 +300,8 @@ static inline void predict(
 static inline void correct(
     const type::int_idx inum, type::fp_m *__restrict t_pres, type::position *__restrict pos0, type::velocity *__restrict vel0, type::acceleration *__restrict acc0, type::jerk *__restrict jrk0, type::fp_m *__restrict t_next,
     const type::position *const pos1, const type::velocity *const vel1, const type::acceleration *const acc1, const type::jerk *const jrk1, const type::fp_m t1, const type::fp_m eta) {
-#pragma omp target teams loop
+#pragma acc kernels
+#pragma acc loop independent
   for (type::int_idx ii = 0U; ii < inum; ii++) {
     // set time step for this particle
     const auto dt = t1 - t_pres[ii];
@@ -367,10 +372,13 @@ static inline void correct(
 static inline void sort_particles(const type::int_idx num, type::int_idx *__restrict tag, type::nbody *__restrict src, type::nbody *__restrict dst) {
   // sort particle time
   std::iota(tag, tag + num, 0U);
+#pragma acc update host(src->nxt [0:num])
   std::sort(tag, tag + num, [src](auto ii, auto jj) { return ((*src).nxt[ii] < (*src).nxt[jj]); });
+#pragma acc update device(tag [0:num])
 
   // sort N-body particles
-#pragma omp target teams loop
+#pragma acc kernels
+#pragma acc loop independent
   for (type::int_idx ii = 0U; ii < num; ii++) {
     const auto jj = tag[ii];
 
@@ -401,6 +409,7 @@ static inline void sort_particles(const type::int_idx num, type::int_idx *__rest
 ///
 static inline auto set_time_step(const type::int_idx num, type::nbody &body, const type::fp_m time_pres, const type::fp_m time_sync) {
   auto Ni = num;
+#pragma acc update host(body.nxt [0:num])
   const auto time_next = std::min(time_sync, time_pres + std::exp2(std::floor(std::log2(body.nxt[0] - time_pres))));
   if (time_next < time_sync) {
     // adopt block time step
@@ -414,7 +423,8 @@ static inline auto set_time_step(const type::int_idx num, type::nbody &body, con
   }
 
   // unify the next time within the integrated block
-#pragma omp target teams loop
+#pragma acc kernels
+#pragma acc loop independent
   for (type::int_idx ii = 0U; ii < Ni; ii++) {
     body.nxt[ii] = time_next;
   }
@@ -430,7 +440,8 @@ static inline auto set_time_step(const type::int_idx num, type::nbody &body, con
 /// @param[in] snapshot_interval current time
 ///
 static inline void reset_particle_time(const type::int_idx num, type::nbody &body, const type::fp_m snapshot_interval) {
-#pragma omp target teams loop
+#pragma acc kernels
+#pragma acc loop independent
   for (type::int_idx ii = 0U; ii < num; ii++) {
     body.prs[ii] = AS_FP_M(0.0);
     body.nxt[ii] -= snapshot_interval;
@@ -629,12 +640,19 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
         body0, pos0, vel0, acc0, jerk0, pres0, next0, id0,
         body1, pos1, vel1, acc1, jerk1, pres1, next1, id1, tag, num);
 
+    // workaround for data directives
+#pragma acc enter data create(body0.pos [0:num], body0.vel [0:num], body0.acc [0:num], body0.jrk [0:num], body0.prs [0:num], body0.nxt [0:num], body0.idx [0:num])
+#pragma acc enter data create(body1.pos [0:num], body1.vel [0:num], body1.acc [0:num], body1.jrk [0:num], body1.prs [0:num], body1.nxt [0:num], body1.idx [0:num])
+    auto tag_ptr = tag.get();
+#pragma acc enter data create(tag_ptr)
+
     // generate initial-condition
     init::set_uniform_sphere(num, body0.pos, body0.vel, M_tot, rad, virial, CAST2VEL(newton));
 #pragma omp parallel for
     for (type::int_idx ii = 0U; ii < num; ii++) {
       body0.idx[ii] = ii;
     }
+#pragma acc update device(body0.pos [0:num], body0.vel [0:num], body0.idx [0:num])
 
 #ifndef BENCHMARK_MODE
     // write the first snapshot
@@ -647,6 +665,7 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
              body0.pos, eps_inv
 #endif  // CALCULATE_POTENTIAL
     );
+#pragma acc update host(body0.acc [0:num], body0.jrk [0:num])
     auto error = conservatives();
     io::write_snapshot(num, body0.pos, body0.vel, body0.acc, body0.jrk, body0.idx, file.c_str(), present, time, error);
     guess_initial_dt(num, body0.pos, body0.vel, body0.acc, body0.jrk, num, body0.pos, body0.vel, body0.acc, body0.jrk, eps2, eta, body0.nxt);
@@ -654,7 +673,7 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
     while (present < snp_fin) {
       step++;
 
-      sort_particles(num, tag.get(), &body0, &body1);
+      sort_particles(num, tag_ptr, &body0, &body1);
       std::tie(Ni, time_from_snapshot) = set_time_step(num, body0, time_from_snapshot, snapshot_interval);
       if (time_from_snapshot >= snapshot_interval) {
         present++;
@@ -679,6 +698,7 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
         previous = present;
         time_from_snapshot = AS_FP_M(0.0);
         time += snapshot_interval;
+#pragma acc update host(body0.pos [0:num], body0.vel [0:num], body0.acc [0:num], body0.jrk [0:num], body0.idx [0:num])
         io::write_snapshot(num, body0.pos, body0.vel, body0.acc, body0.jrk, body0.idx, file.c_str(), present, time, error);
         reset_particle_time(num, body0, snapshot_interval);
       }
@@ -714,6 +734,9 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
 #endif  // BENCHMARK_MODE
 
     // memory deallocation
+#pragma acc exit data delete (body0.pos [0:num], body0.vel [0:num], body0.acc [0:num], body0.jrk [0:num], body0.prs [0:num], body0.nxt [0:num], body0.idx [0:num])
+#pragma acc exit data delete (body1.pos [0:num], body1.vel [0:num], body1.acc [0:num], body1.jrk [0:num], body1.prs [0:num], body1.nxt [0:num], body1.idx [0:num])
+#pragma acc exit data delete (tag_ptr)
     release_Nbody_particles(
         pos0, vel0, acc0, jerk0, pres0, next0, id0,
         pos1, vel1, acc1, jerk1, pres1, next1, id1, tag);
