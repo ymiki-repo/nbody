@@ -161,62 +161,47 @@ make  # if ninja-build is missing
    * <details><summary>Wisteria/BDEC-01上での環境構築</summary>
 
      ```sh
-     # 1. sh/wisteria/setup_julia.sh 5行目の gz00 をご自分の所属グループに編集してください（必須）
-     # 2. sh/wisteria/setup_julia.sh 7行目の gz00 をご自分の所属グループに編集してください（必須）
-     # 3. sh/wisteria/setup_julia.sh 15-18行目の Python 環境の設定をご自分の環境に合わせて編集してください（上記設定の通りにPython環境を構築した場合にはこの手順は不要）
-     pjsub -x PROJ=gz00 sh/wisteria/setup_julia.sh # gz00 をご自分の所属グループに編集してください（必須）
+     # 1. sh/wisteria/setup_julia.sh 15-18行目の Python 環境の設定をご自分の環境に合わせて編集してください（上記設定の通りにPython環境を構築した場合にはこの手順は不要）
+     pjsub --vset PROJ=gz00 -x PROJ=gz00 sh/wisteria/setup_julia.sh # gz00 をご自分の所属グループに編集してください（必須，2ヶ所あります）
+     ```
+
+     </details>
+   * <details><summary>お手元の環境などでの構築方法</summary>
+
+     ```sh
+     module load miniconda
+     module load anyenv miniconda3 # prepare Python environments
+     module load openmpi           # prepare MPI to be used
+     module load texlive           # prepare LaTeX environments
+     module load julia             # prepare Julia environments
+     julia jl/package.jl
+     julia --project -e 'using MPIPreferences; MPIPreferences.use_system_binary()' # configure to use system-provided MPI
      ```
 
      </details>
 
-<!-- ## How to check results
+## How to check results
 
-```sh
-julia jl/plot/error.jl                                                # show time evolution of conservatives and the virial ratio
-sbatch --export=EXEC="julia jl/plot/dot.jl" sh/slurm/plot_parallel.sh # show particles distribution by using dots
-visit &                                                               # open dat/FILENAME_snp*.xdmf files and visualize them
-```
+ * <details><summary>Wisteria/BDEC-01上での実行方法</summary>
+
+   ```sh
+   pjsub --vset PROJ=gz00 -x PROJ=gz00 sh/wisteria/plot_error.sh # エネルギー保存などの時間進化を描画，gz00 をご自分の所属グループに編集してください（必須，2ヶ所あります）
+   pjsub --vset PROJ=gz00 -x PROJ=gz00 sh/wisteria/plot_dot.sh   # 粒子分布の時間進化を描画，gz00 をご自分の所属グループに編集してください（必須，2ヶ所あります）
+   ```
+
+   </details>
+
+ * <details><summary>Slurm環境などでの実行方法</summary>
+
+   ```sh
+   julia jl/plot/error.jl                                                # show time evolution of conservatives and the virial ratio
+   sbatch --export=EXEC="julia jl/plot/dot.jl" sh/slurm/plot_parallel.sh # show particles distribution by using dots
+   visit &                                                               # open dat/FILENAME_snp*.xdmf files and visualize them
+   ```
+
+   </details>
 
 * check the output figures in fig/
-
-## How to install Julia packages
-
-```sh
-pjsub --interact -L rscgrp=share-interactive -g gz00
-module purge
-module load julia
-export JULIA_DEPOT_PATH=/work/gz00/$USER/.julia
-module load gcc
-module load ompi
-julia jl/package.jl
-julia --project -e 'using MPIPreferences; MPIPreferences.use_system_binary()' # configure to use system-provided MPI
-```
-
-```sh
-module load miniconda
-module load anyenv miniconda3 # prepare Python environments
-module load openmpi           # prepare MPI to be used
-module load texlive           # prepare LaTeX environments
-module load julia             # prepare Julia environments
-julia jl/package.jl
-julia --project -e 'using MPIPreferences; MPIPreferences.use_system_binary()' # configure to use system-provided MPI
-```
-
-* <details><summary>when MPI.jl not properly configured:</summary>
-
-  ```sh
-  module purge
-  module load anyenv miniconda3 # prepare Python environments
-  module load openmpi           # prepare MPI to be used
-  module load texlive           # prepare LaTeX environments
-  module load julia             # prepare Julia environments
-  julia
-  > using Pkg
-  > Pkg.build("MPI")
-  > exit()
-  ```
-
-  </details> -->
 
 ## Profiling
 
