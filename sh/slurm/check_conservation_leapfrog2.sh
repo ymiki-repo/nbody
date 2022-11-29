@@ -36,7 +36,7 @@ fi
 
 # name of the job script for execution
 if [ -z "$JOB_SCRIPT_EXEC" ]; then
-    JOB_SCRIPT_EXEC=sh/slurm/run_cpu.sh
+    JOB_SCRIPT_EXEC=sh/slurm/run.sh
 fi
 
 # name of the job script for visualization

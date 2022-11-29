@@ -104,7 +104,7 @@ make  # if ninja-build is missing
 * <details><summary>Slurm</summary>
 
   ```sh
-  sbatch sh/slurm/run_cpu.sh [option] # run an $N$-body simulation
+  sbatch sh/slurm/run.sh [option] # run an $N$-body simulation
   sh/slurm/check_conservation_leapfrog2.sh [option] # run a series of $N$-body simulations (check energy conservation of 2nd-order leapfrog scheme)
   sh/slurm/check_conservation_hermite4.sh [option] # run a series of $N$-body simulations (check energy conservation of 4th-order Hermite scheme)
   sh/slurm/check_performance_scaling.sh [option] # run a series of $N$-body simulations (evaluate time-to-solution as a function of the number of $N$-body particles)
