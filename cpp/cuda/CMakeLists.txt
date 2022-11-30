@@ -1,2 +1,3 @@
 add_subdirectory(00_unified_base)
 add_subdirectory(10_memcpy_base)
+add_subdirectory(11_memcpy_rsqrt)

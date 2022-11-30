@@ -69,6 +69,7 @@ __global__ void calc_acc_device(const type::position *const ipos, type::accelera
 #if FP_L <= 32
     const auto r_inv = rsqrtf(r2);
 #else   // FP_L <= 32
+    // obtain reciprocal square root by using Newton--Raphson method instead of 1.0 / sqrt(r2) in FP64
     const auto seed = type::cast2fp_l(rsqrtf(static_cast<float>(r2)));
     const auto r_inv = AS_FP_L(0.5) * (AS_FP_L(3.0) - r2 * seed * seed) * seed;
 #endif  // FP_L <= 32

@@ -1,5 +1,5 @@
 # compile direct N-body code (base implementation in CUDA C++: use of Unified Memory, no kernel optimization)
-project(cuda_unified_base CXX CUDA)
+project(cuda_unified_rsqrt CXX CUDA)
 message(STATUS "Generate ${PROJECT_NAME} ...")
 
 # define the executable
