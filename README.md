@@ -74,6 +74,8 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
 
 * List of compile options (for CMake):
   * -DBENCHMARK_MODE=[ON OFF(default)] : On to perform benchmark
+    * 性能測定モードでは重力計算部分のみの実行時間を測定します（CPU-GPU間のデータ転送は含めません）
+    * Unified Memory使用版と不使用版両方がある場合には，Unified Memoryを使用しない実装のみを測定対象とします
   * -DCALCULATE_POTENTIAL=[ON(default) OFF] : On to calculate gravitational potential
   * -DFP_L=[32(default) 64 128] : Number of bits for floating-point numbers (low-precision)
   * -DFP_M=[32 64(default) 128] : Number of bits for floating-point numbers (medium-precision)
