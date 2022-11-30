@@ -34,6 +34,34 @@ constexpr type::flt_acc newton = AS_FLT_ACC(1.0);  ///< gravitational constant
 constexpr type::int_idx NTHREADS = 256U;
 #endif  // NTHREADS
 
+#ifndef NUNROLL
+#define NUNROLL (128)
+#endif  // NUNROLL
+
+#if NUNROLL == 1
+#define PRAGMA_UNROLL _Pragma("unroll 1")
+#elif NUNROLL == 2
+#define PRAGMA_UNROLL _Pragma("unroll 2")
+#elif NUNROLL == 4
+#define PRAGMA_UNROLL _Pragma("unroll 4")
+#elif NUNROLL == 8
+#define PRAGMA_UNROLL _Pragma("unroll 8")
+#elif NUNROLL == 16
+#define PRAGMA_UNROLL _Pragma("unroll 16")
+#elif NUNROLL == 32
+#define PRAGMA_UNROLL _Pragma("unroll 32")
+#elif NUNROLL == 64
+#define PRAGMA_UNROLL _Pragma("unroll 64")
+#elif NUNROLL == 128
+#define PRAGMA_UNROLL _Pragma("unroll 128")
+#elif NUNROLL == 256
+#define PRAGMA_UNROLL _Pragma("unroll 256")
+#elif NUNROLL == 512
+#define PRAGMA_UNROLL _Pragma("unroll 512")
+#elif NUNROLL == 1024
+#define PRAGMA_UNROLL _Pragma("unroll 1024")
+#endif
+
 ///
 /// @brief required block size for the given problem size and number of threads per thread-block
 ///
@@ -56,35 +84,43 @@ __global__ void calc_acc_device(const type::position *const ipos, type::accelera
   const auto pi = ipos[ii];
   type::acceleration ai = {AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0)};
 
+  __shared__ type::position jpos_shmem[NTHREADS];
+
   // force evaluation
-  for (type::int_idx jj = 0U; jj < Nj; jj++) {
+  for (type::int_idx jh = 0U; jh < Nj; jh += NTHREADS) {
     // load j-particle
-    const auto pj = jpos[jj];
+    __syncthreads();
+    jpos_shmem[threadIdx.x] = jpos[jh + threadIdx.x];
+    __syncthreads();
 
-    // calculate particle-particle interaction
-    const auto dx = type::cast2fp_l(pj.x - pi.x);
-    const auto dy = type::cast2fp_l(pj.y - pi.y);
-    const auto dz = type::cast2fp_l(pj.z - pi.z);
-    const auto r2 = eps2 + dx * dx + dy * dy + dz * dz;
+    PRAGMA_UNROLL
+    for (type::int_idx jj = 0U; jj < NTHREADS; jj++) {
+      const auto pj = jpos_shmem[jj];
+      // calculate particle-particle interaction
+      const auto dx = type::cast2fp_l(pj.x - pi.x);
+      const auto dy = type::cast2fp_l(pj.y - pi.y);
+      const auto dz = type::cast2fp_l(pj.z - pi.z);
+      const auto r2 = eps2 + dx * dx + dy * dy + dz * dz;
 #if FP_L <= 32
-    const auto r_inv = rsqrtf(r2);
+      const auto r_inv = rsqrtf(r2);
 #else   // FP_L <= 32
-    // obtain reciprocal square root by using Newton--Raphson method instead of 1.0 / sqrt(r2) in FP64
-    const auto seed = type::cast2fp_l(rsqrtf(static_cast<float>(r2)));
-    const auto r_inv = AS_FP_L(0.5) * (AS_FP_L(3.0) - r2 * seed * seed) * seed;
+      // obtain reciprocal square root by using Newton--Raphson method instead of 1.0 / sqrt(r2) in FP64
+      const auto seed = type::cast2fp_l(rsqrtf(static_cast<float>(r2)));
+      const auto r_inv = AS_FP_L(0.5) * (AS_FP_L(3.0) - r2 * seed * seed) * seed;
 #endif  // FP_L <= 32
-    const auto r2_inv = r_inv * r_inv;
-    const auto alp = type::cast2fp_l(pj.w) * r_inv * r2_inv;
+      const auto r2_inv = r_inv * r_inv;
+      const auto alp = type::cast2fp_l(pj.w) * r_inv * r2_inv;
 
-    // force accumulation
-    ai.x += CAST2ACC(alp * dx);
-    ai.y += CAST2ACC(alp * dy);
-    ai.z += CAST2ACC(alp * dz);
+      // force accumulation
+      ai.x += CAST2ACC(alp * dx);
+      ai.y += CAST2ACC(alp * dy);
+      ai.z += CAST2ACC(alp * dz);
 
 #ifdef CALCULATE_POTENTIAL
-    // gravitational potential
-    ai.w += CAST2ACC(alp * r2);
+      // gravitational potential
+      ai.w += CAST2ACC(alp * r2);
 #endif  // CALCULATE_POTENTIAL
+    }
   }
   iacc[ii] = ai;
 }
@@ -311,9 +347,19 @@ static inline void release_Nbody_particles(type::position *pos, type::velocity *
 /// @brief configure the target GPU device if necessary
 ///
 static inline void configure_gpu() {
-  // this sample code does not utilize the shared memory, so maximize the capacity of the L1 cache (0% for shared memory)
-  cudaFuncSetAttribute(calc_acc_device, cudaFuncAttributePreferredSharedMemoryCarveout, 0);
+  // obtain available capacity of shared memory
+  cudaDeviceProp prop;
+  int32_t id;
+  cudaGetDevice(&id);
+  cudaGetDeviceProperties(&prop, id);
+
+  // estimate required capacity of shared memory
+  int32_t N_block;
+  cudaOccupancyMaxActiveBlocksPerMultiprocessor(&N_block, calc_acc_device, NTHREADS, 0);
+  cudaFuncSetAttribute(calc_acc_device, cudaFuncAttributePreferredSharedMemoryCarveout, static_cast<int32_t>(std::ceil(static_cast<float>(sizeof(type::position) * N_block * NTHREADS) / static_cast<float>(prop.sharedMemPerBlock))));
+
 #ifndef BENCHMARK_MODE
+  // below functions do not utilize the shared memory, so maximize the capacity of the L1 cache (0% for shared memory)
   cudaFuncSetAttribute(trim_acc_device, cudaFuncAttributePreferredSharedMemoryCarveout, 0);
   cudaFuncSetAttribute(kick_device, cudaFuncAttributePreferredSharedMemoryCarveout, 0);
   cudaFuncSetAttribute(drift_device, cudaFuncAttributePreferredSharedMemoryCarveout, 0);

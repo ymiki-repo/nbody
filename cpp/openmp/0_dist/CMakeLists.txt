@@ -28,3 +28,6 @@ target_link_libraries(${PROJECT_NAME}
     $<$<AND:$<BOOL:${OpenMP_FOUND}>,$<BOOL:${GPU_EXECUTION}>,$<CXX_COMPILER_ID:NVHPC>>:-mp=gpu>
     $<$<AND:$<BOOL:${OpenMP_FOUND}>,$<NOT:$<BOOL:${GPU_EXECUTION}>>,$<CXX_COMPILER_ID:NVHPC>>:-mp=multicore>
 )
+target_compile_definitions(${PROJECT_NAME} PUBLIC
+    NTHREADS=\(${NTHREADS}U\)
+)

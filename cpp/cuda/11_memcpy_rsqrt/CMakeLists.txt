@@ -25,3 +25,7 @@ else(${NVIDIA_GPU_HARD} EQUAL ${NVIDIA_GPU_SOFT})
         $<$<COMPILE_LANGUAGE:CUDA>:-gencode arch=compute_${NVIDIA_GPU_SOFT},code=sm_${NVIDIA_GPU_HARD}>
     )
 endif(${NVIDIA_GPU_HARD} EQUAL ${NVIDIA_GPU_SOFT})
+
+target_compile_definitions(${PROJECT_NAME} PUBLIC
+    NTHREADS=\(${NTHREADS}U\)
+)

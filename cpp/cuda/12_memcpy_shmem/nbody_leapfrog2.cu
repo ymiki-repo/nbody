@@ -94,7 +94,7 @@ __global__ void calc_acc_device(const type::position *const ipos, type::accelera
     __syncthreads();
 
     PRAGMA_UNROLL
-    for (type::int_idx jj = 0; jj < NTHREADS; jj++) {
+    for (type::int_idx jj = 0U; jj < NTHREADS; jj++) {
       const auto pj = jpos_shmem[jj];
       // calculate particle-particle interaction
       const auto dx = type::cast2fp_l(pj.x - pi.x);

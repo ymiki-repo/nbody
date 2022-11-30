@@ -35,6 +35,34 @@ constexpr type::flt_acc newton = AS_FLT_ACC(1.0);  ///< gravitational constant
 constexpr type::int_idx NTHREADS = 256U;
 #endif  // NTHREADS
 
+#ifndef NUNROLL
+#define NUNROLL (128)
+#endif  // NUNROLL
+
+#if NUNROLL == 1
+#define PRAGMA_UNROLL _Pragma("unroll 1")
+#elif NUNROLL == 2
+#define PRAGMA_UNROLL _Pragma("unroll 2")
+#elif NUNROLL == 4
+#define PRAGMA_UNROLL _Pragma("unroll 4")
+#elif NUNROLL == 8
+#define PRAGMA_UNROLL _Pragma("unroll 8")
+#elif NUNROLL == 16
+#define PRAGMA_UNROLL _Pragma("unroll 16")
+#elif NUNROLL == 32
+#define PRAGMA_UNROLL _Pragma("unroll 32")
+#elif NUNROLL == 64
+#define PRAGMA_UNROLL _Pragma("unroll 64")
+#elif NUNROLL == 128
+#define PRAGMA_UNROLL _Pragma("unroll 128")
+#elif NUNROLL == 256
+#define PRAGMA_UNROLL _Pragma("unroll 256")
+#elif NUNROLL == 512
+#define PRAGMA_UNROLL _Pragma("unroll 512")
+#elif NUNROLL == 1024
+#define PRAGMA_UNROLL _Pragma("unroll 1024")
+#endif
+
 ///
 /// @brief required block size for the given problem size and number of threads per thread-block
 ///
@@ -63,45 +91,56 @@ __global__ void calc_acc_device(
   type::acceleration ai = {AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0)};
   type::jerk ji = {AS_FLT_JRK(0.0), AS_FLT_JRK(0.0), AS_FLT_JRK(0.0)};
 
-  // force evaluation
-  for (type::int_idx jj = 0U; jj < Nj; jj++) {
-    // load j-particle
-    const auto pj = jpos[jj];
-    const auto vj = jvel[jj];
+  __shared__ type::position jpos_shmem[NTHREADS];
+  __shared__ type::velocity jvel_shmem[NTHREADS];
 
-    // calculate acceleration
-    const auto dx = type::cast2fp_l(pj.x - pi.x);
-    const auto dy = type::cast2fp_l(pj.y - pi.y);
-    const auto dz = type::cast2fp_l(pj.z - pi.z);
-    const auto r2 = eps2 + dx * dx + dy * dy + dz * dz;
+  // force evaluation
+  for (type::int_idx jh = 0U; jh < Nj; jh += NTHREADS) {
+    // load j-particle
+    __syncthreads();
+    jpos_shmem[threadIdx.x] = jpos[jh + threadIdx.x];
+    jvel_shmem[threadIdx.x] = jvel[jh + threadIdx.x];
+    __syncthreads();
+
+    PRAGMA_UNROLL
+    for (type::int_idx jj = 0U; jj < NTHREADS; jj++) {
+      const auto pj = jpos_shmem[jj];
+      const auto vj = jvel_shmem[jj];
+
+      // calculate acceleration
+      const auto dx = type::cast2fp_l(pj.x - pi.x);
+      const auto dy = type::cast2fp_l(pj.y - pi.y);
+      const auto dz = type::cast2fp_l(pj.z - pi.z);
+      const auto r2 = eps2 + dx * dx + dy * dy + dz * dz;
 #if FP_L <= 32
-    const auto r_inv = rsqrtf(r2);
+      const auto r_inv = rsqrtf(r2);
 #else   // FP_L <= 32
-    // obtain reciprocal square root by using Newton--Raphson method instead of 1.0 / sqrt(r2) in FP64
-    const auto seed = type::cast2fp_l(rsqrtf(static_cast<float>(r2)));
-    const auto r_inv = AS_FP_L(0.5) * (AS_FP_L(3.0) - r2 * seed * seed) * seed;
+      // obtain reciprocal square root by using Newton--Raphson method instead of 1.0 / sqrt(r2) in FP64
+      const auto seed = type::cast2fp_l(rsqrtf(static_cast<float>(r2)));
+      const auto r_inv = AS_FP_L(0.5) * (AS_FP_L(3.0) - r2 * seed * seed) * seed;
 #endif  // FP_L <= 32
-    const auto r2_inv = r_inv * r_inv;
-    const auto alp = type::cast2fp_l(pj.w) * r_inv * r2_inv;
-    // force accumulation
-    ai.x += CAST2ACC(alp * dx);
-    ai.y += CAST2ACC(alp * dy);
-    ai.z += CAST2ACC(alp * dz);
+      const auto r2_inv = r_inv * r_inv;
+      const auto alp = type::cast2fp_l(pj.w) * r_inv * r2_inv;
+      // force accumulation
+      ai.x += CAST2ACC(alp * dx);
+      ai.y += CAST2ACC(alp * dy);
+      ai.z += CAST2ACC(alp * dz);
 
 #ifdef CALCULATE_POTENTIAL
-    // gravitational potential
-    ai.w += CAST2ACC(alp * r2);
+      // gravitational potential
+      ai.w += CAST2ACC(alp * r2);
 #endif  // CALCULATE_POTENTIAL
 
-    // calculate jerk
-    const auto dvx = type::cast2fp_l(vj.x - vi.x);
-    const auto dvy = type::cast2fp_l(vj.y - vi.y);
-    const auto dvz = type::cast2fp_l(vj.z - vi.z);
-    const auto bet = AS_FP_L(-3.0) * (dx * dvx + dy * dvy + dz * dvz) * r2_inv;  ///< 3 * beta
-    // jerk accumulation
-    ji.x += CAST2JRK(alp * (dvx + bet * dx));
-    ji.y += CAST2JRK(alp * (dvy + bet * dy));
-    ji.z += CAST2JRK(alp * (dvz + bet * dz));
+      // calculate jerk
+      const auto dvx = type::cast2fp_l(vj.x - vi.x);
+      const auto dvy = type::cast2fp_l(vj.y - vi.y);
+      const auto dvz = type::cast2fp_l(vj.z - vi.z);
+      const auto bet = AS_FP_L(-3.0) * (dx * dvx + dy * dvy + dz * dvz) * r2_inv;  ///< 3 * beta
+      // jerk accumulation
+      ji.x += CAST2JRK(alp * (dvx + bet * dx));
+      ji.y += CAST2JRK(alp * (dvy + bet * dy));
+      ji.z += CAST2JRK(alp * (dvz + bet * dz));
+    }
   }
   iacc[ii] = ai;
   ijrk[ii] = ji;
@@ -230,58 +269,73 @@ __global__ void guess_initial_dt_device(
   auto cy = AS_FP_M(0.0);
   auto cz = AS_FP_M(0.0);
 
+  __shared__ type::position jpos_shmem[NTHREADS];
+  __shared__ type::velocity jvel_shmem[NTHREADS];
+  __shared__ type::acceleration jacc_shmem[NTHREADS];
+  __shared__ type::jerk jjrk_shmem[NTHREADS];
+
   // force evaluation
-  for (type::int_idx jj = 0U; jj < Nj; jj++) {
+  for (type::int_idx jh = 0U; jh < Nj; jh += NTHREADS) {
     // load j-particle
-    const auto p_j = jpos[jj];
-    const auto v_j = jvel[jj];
-    const auto a_j = jacc[jj];
-    const auto j_j = jjrk[jj];
+    __syncthreads();
+    jpos_shmem[threadIdx.x] = jpos[jh + threadIdx.x];
+    jvel_shmem[threadIdx.x] = jvel[jh + threadIdx.x];
+    jacc_shmem[threadIdx.x] = jacc[jh + threadIdx.x];
+    jjrk_shmem[threadIdx.x] = jjrk[jh + threadIdx.x];
+    __syncthreads();
 
-    // calculate acceleration
-    const auto dx = type::cast2fp_l(p_j.x - p_i.x);
-    const auto dy = type::cast2fp_l(p_j.y - p_i.y);
-    const auto dz = type::cast2fp_l(p_j.z - p_i.z);
-    const auto r2 = eps2 + dx * dx + dy * dy + dz * dz;
+    PRAGMA_UNROLL
+    for (type::int_idx jj = 0U; jj < NTHREADS; jj++) {
+      const auto p_j = jpos_shmem[jj];
+      const auto v_j = jvel_shmem[jj];
+      const auto a_j = jacc_shmem[jj];
+      const auto j_j = jjrk_shmem[jj];
+
+      // calculate acceleration
+      const auto dx = type::cast2fp_l(p_j.x - p_i.x);
+      const auto dy = type::cast2fp_l(p_j.y - p_i.y);
+      const auto dz = type::cast2fp_l(p_j.z - p_i.z);
+      const auto r2 = eps2 + dx * dx + dy * dy + dz * dz;
 #if FP_L <= 32
-    const auto r_inv = rsqrtf(r2);
+      const auto r_inv = rsqrtf(r2);
 #else   // FP_L <= 32
-    // obtain reciprocal square root by using Newton--Raphson method instead of 1.0 / sqrt(r2) in FP64
-    const auto seed = type::cast2fp_l(rsqrtf(static_cast<float>(r2)));
-    const auto r_inv = AS_FP_L(0.5) * (AS_FP_L(3.0) - r2 * seed * seed) * seed;
+      // obtain reciprocal square root by using Newton--Raphson method instead of 1.0 / sqrt(r2) in FP64
+      const auto seed = type::cast2fp_l(rsqrtf(static_cast<float>(r2)));
+      const auto r_inv = AS_FP_L(0.5) * (AS_FP_L(3.0) - r2 * seed * seed) * seed;
 #endif  // FP_L <= 32
-    const auto r2_inv = r_inv * r_inv;
-    const auto alp = type::cast2fp_l(p_j.w) * r_inv * r2_inv;
+      const auto r2_inv = r_inv * r_inv;
+      const auto alp = type::cast2fp_l(p_j.w) * r_inv * r2_inv;
 
-    // calculate jerk
-    const auto dvx = type::cast2fp_l(v_j.x - v_i.x);
-    const auto dvy = type::cast2fp_l(v_j.y - v_i.y);
-    const auto dvz = type::cast2fp_l(v_j.z - v_i.z);
-    const auto bet = -(dx * dvx + dy * dvy + dz * dvz) * r2_inv;
+      // calculate jerk
+      const auto dvx = type::cast2fp_l(v_j.x - v_i.x);
+      const auto dvy = type::cast2fp_l(v_j.y - v_i.y);
+      const auto dvz = type::cast2fp_l(v_j.z - v_i.z);
+      const auto bet = -(dx * dvx + dy * dvy + dz * dvz) * r2_inv;
 
-    // calculate snap
-    const auto dax = type::cast2fp_l(a_j.x - a_i.x);
-    const auto day = type::cast2fp_l(a_j.y - a_i.y);
-    const auto daz = type::cast2fp_l(a_j.z - a_i.z);
-    const auto bet2 = bet * bet;
-    const auto gam = AS_FP_L(5.0) * bet2 - (dvx * dvx + dvy * dvy + dvz * dvz + dx * dax + dy * day + dz * daz) * r2_inv;
-    const auto s0 = AS_FP_L(6.0) * bet;
-    const auto s1 = AS_FP_L(3.0) * gam;
-    sx += type::cast2fp_m(alp * (dax + s0 * dvx + s1 * dx));
-    sy += type::cast2fp_m(alp * (day + s0 * dvy + s1 * dy));
-    sz += type::cast2fp_m(alp * (daz + s0 * dvz + s1 * dz));
+      // calculate snap
+      const auto dax = type::cast2fp_l(a_j.x - a_i.x);
+      const auto day = type::cast2fp_l(a_j.y - a_i.y);
+      const auto daz = type::cast2fp_l(a_j.z - a_i.z);
+      const auto bet2 = bet * bet;
+      const auto gam = AS_FP_L(5.0) * bet2 - (dvx * dvx + dvy * dvy + dvz * dvz + dx * dax + dy * day + dz * daz) * r2_inv;
+      const auto s0 = AS_FP_L(6.0) * bet;
+      const auto s1 = AS_FP_L(3.0) * gam;
+      sx += type::cast2fp_m(alp * (dax + s0 * dvx + s1 * dx));
+      sy += type::cast2fp_m(alp * (day + s0 * dvy + s1 * dy));
+      sz += type::cast2fp_m(alp * (daz + s0 * dvz + s1 * dz));
 
-    // calculate crackle
-    const auto djx = type::cast2fp_l(j_j.x - j_i.x);
-    const auto djy = type::cast2fp_l(j_j.y - j_i.y);
-    const auto djz = type::cast2fp_l(j_j.z - j_i.z);
-    const auto del = AS_FP_L(5.0) * bet * (s1 - AS_FP_L(8.0) * bet2) - (dx * djx + dy * djy + dz * djz + AS_FP_L(3.0) * (dvx * dax + dvy * day + dvz * daz)) * r2_inv;
-    const auto c0 = AS_FP_L(9.0) * bet;
-    const auto c1 = AS_FP_L(9.0) * gam;
-    const auto c2 = AS_FP_L(3.0) * del;
-    cx += type::cast2fp_m(alp * (djx + c0 * dax + c1 * dvx + c2 * dx));
-    cy += type::cast2fp_m(alp * (djy + c0 * day + c1 * dvy + c2 * dy));
-    cz += type::cast2fp_m(alp * (djz + c0 * daz + c1 * dvz + c2 * dz));
+      // calculate crackle
+      const auto djx = type::cast2fp_l(j_j.x - j_i.x);
+      const auto djy = type::cast2fp_l(j_j.y - j_i.y);
+      const auto djz = type::cast2fp_l(j_j.z - j_i.z);
+      const auto del = AS_FP_L(5.0) * bet * (s1 - AS_FP_L(8.0) * bet2) - (dx * djx + dy * djy + dz * djz + AS_FP_L(3.0) * (dvx * dax + dvy * day + dvz * daz)) * r2_inv;
+      const auto c0 = AS_FP_L(9.0) * bet;
+      const auto c1 = AS_FP_L(9.0) * gam;
+      const auto c2 = AS_FP_L(3.0) * del;
+      cx += type::cast2fp_m(alp * (djx + c0 * dax + c1 * dvx + c2 * dx));
+      cy += type::cast2fp_m(alp * (djy + c0 * day + c1 * dvy + c2 * dy));
+      cz += type::cast2fp_m(alp * (djz + c0 * daz + c1 * dvz + c2 * dz));
+    }
   }
 
   // guess initial dt at t = 0
@@ -752,12 +806,25 @@ static inline void release_Nbody_particles(
 /// @brief configure the target GPU device if necessary
 ///
 static inline void configure_gpu() {
-  // this sample code does not utilize the shared memory, so maximize the capacity of the L1 cache (0% for shared memory)
-  cudaFuncSetAttribute(calc_acc_device, cudaFuncAttributePreferredSharedMemoryCarveout, 0);
+  // obtain available capacity of shared memory
+  cudaDeviceProp prop;
+  int32_t id;
+  cudaGetDevice(&id);
+  cudaGetDeviceProperties(&prop, id);
+
+  // estimate required capacity of shared memory
+  int32_t N_block;
+  cudaOccupancyMaxActiveBlocksPerMultiprocessor(&N_block, calc_acc_device, NTHREADS, 0);
+  cudaFuncSetAttribute(calc_acc_device, cudaFuncAttributePreferredSharedMemoryCarveout, static_cast<int32_t>(std::ceil(static_cast<float>((sizeof(type::position) + sizeof(type::velocity)) * N_block * NTHREADS) / static_cast<float>(prop.sharedMemPerBlock))));
+#ifndef BENCHMARK_MODE
+  cudaOccupancyMaxActiveBlocksPerMultiprocessor(&N_block, guess_initial_dt_device, NTHREADS, 0);
+  cudaFuncSetAttribute(guess_initial_dt_device, cudaFuncAttributePreferredSharedMemoryCarveout, static_cast<int32_t>(std::ceil(static_cast<float>((sizeof(type::position) + sizeof(type::velocity) + sizeof(type::acceleration) + sizeof(type::jerk)) * N_block * NTHREADS) / static_cast<float>(prop.sharedMemPerBlock))));
+#endif  // BENCHMARK_MODE
+
+  // below functions do not utilize the shared memory, so maximize the capacity of the L1 cache (0% for shared memory)
   cudaFuncSetAttribute(reset_tag_device, cudaFuncAttributePreferredSharedMemoryCarveout, 0);
 #ifndef BENCHMARK_MODE
   cudaFuncSetAttribute(trim_acc_device, cudaFuncAttributePreferredSharedMemoryCarveout, 0);
-  cudaFuncSetAttribute(guess_initial_dt_device, cudaFuncAttributePreferredSharedMemoryCarveout, 0);
   cudaFuncSetAttribute(predict_device, cudaFuncAttributePreferredSharedMemoryCarveout, 0);
   cudaFuncSetAttribute(correct_device, cudaFuncAttributePreferredSharedMemoryCarveout, 0);
   cudaFuncSetAttribute(sort_particles_device, cudaFuncAttributePreferredSharedMemoryCarveout, 0);
