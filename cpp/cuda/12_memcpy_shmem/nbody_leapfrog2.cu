@@ -35,30 +35,30 @@ constexpr type::int_idx NTHREADS = 256U;
 #endif  // NTHREADS
 
 #ifndef NUNROLL
-constexpr type::int_idx NUNROLL = NTHREADS / 2U;
+#define NUNROLL (128)
 #endif  // NUNROLL
 
-#if NUNROLL == 1U
+#if NUNROLL == 1
 #define PRAGMA_UNROLL _Pragma("unroll 1")
-#elif NUNROLL == 2U
+#elif NUNROLL == 2
 #define PRAGMA_UNROLL _Pragma("unroll 2")
-#elif NUNROLL == 4U
+#elif NUNROLL == 4
 #define PRAGMA_UNROLL _Pragma("unroll 4")
-#elif NUNROLL == 8U
+#elif NUNROLL == 8
 #define PRAGMA_UNROLL _Pragma("unroll 8")
-#elif NUNROLL == 16U
+#elif NUNROLL == 16
 #define PRAGMA_UNROLL _Pragma("unroll 16")
-#elif NUNROLL == 32U
+#elif NUNROLL == 32
 #define PRAGMA_UNROLL _Pragma("unroll 32")
-#elif NUNROLL == 64U
+#elif NUNROLL == 64
 #define PRAGMA_UNROLL _Pragma("unroll 64")
-#elif NUNROLL == 128U
+#elif NUNROLL == 128
 #define PRAGMA_UNROLL _Pragma("unroll 128")
-#elif NUNROLL == 256U
+#elif NUNROLL == 256
 #define PRAGMA_UNROLL _Pragma("unroll 256")
-#elif NUNROLL == 512U
+#elif NUNROLL == 512
 #define PRAGMA_UNROLL _Pragma("unroll 512")
-#elif NUNROLL == 1024U
+#elif NUNROLL == 1024
 #define PRAGMA_UNROLL _Pragma("unroll 1024")
 #endif
 
