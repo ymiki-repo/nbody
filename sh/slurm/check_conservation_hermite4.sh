@@ -51,7 +51,7 @@ fi
 
 for NUM in 256
 do
-	for ETA in 0.5 0.25 0.125 6.25e-2 3.125e-2 1.5625e-2 7.8125e-3 3.90625e-3 1.953125e-3
+	for ETA in 0.5 0.25 0.125 6.25e-2 3.125e-2 1.5625e-2 7.8125e-3 3.90625e-3 1.953125e-3 9.765625e-4
 	do
 		OPTION="OPTION=\"${COMMON_OPTION} --num=${NUM} --eta=${ETA}\""
 		RET=$(eval "sbatch --dependency=singleton ${INPUT}${OPTION} ${JOB_SCRIPT_EXEC}")
