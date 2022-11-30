@@ -161,22 +161,27 @@ endif(${FP_M} GREATER ${FP_H})
 message(STATUS "FP_H = ${FP_H}")
 
 if(GPU_EXECUTION)
-    # set NTHREADS for GPU
-    set(NTHREADS 256 CACHE STRING "Number of threads per thread-block: 32, 64, 128, 256, 512, or 1024")
-    set_property(CACHE NTHREADS PROPERTY STRINGS 32 64 128 256 512 1024)
-    message(STATUS "NTHREADS = ${NTHREADS}")
+    option(OVERWRITE_DEFAULT "On to overwrite default parameters for performance" OFF)
+    message(STATUS "OVERWRITE_DEFAULT is ${OVERWRITE_DEFAULT}")
 
-    # set NUNROLL for GPU (CUDA with shared memory)
-    if(USE_CUDA)
-        set(NUNROLL 128 CACHE STRING "Number of unroll counts: 1, 2, 4, ..., or NTHREADS")
-        set_property(CACHE NUNROLL PROPERTY STRINGS 1 2 4 8 16 32 64 128 256 512 1024)
+    if(OVERWRITE_DEFAULT)
+        # set NTHREADS for GPU
+        set(NTHREADS 256 CACHE STRING "Number of threads per thread-block: 32, 64, 128, 256, 512, or 1024")
+        set_property(CACHE NTHREADS PROPERTY STRINGS 32 64 128 256 512 1024)
+        message(STATUS "NTHREADS = ${NTHREADS}")
 
-        if(${NUNROLL} GREATER ${NTHREADS})
-            set(NUNROLL ${NTHREADS})
-        endif(${NUNROLL} GREATER ${NTHREADS})
+        # set NUNROLL for GPU (CUDA with shared memory)
+        if(USE_CUDA)
+            set(NUNROLL 128 CACHE STRING "Number of unroll counts: 1, 2, 4, ..., or NTHREADS")
+            set_property(CACHE NUNROLL PROPERTY STRINGS 1 2 4 8 16 32 64 128 256 512 1024)
 
-        message(STATUS "NUNROLL = ${NUNROLL}")
-    endif(USE_CUDA)
+            if(${NUNROLL} GREATER ${NTHREADS})
+                set(NUNROLL ${NTHREADS})
+            endif(${NUNROLL} GREATER ${NTHREADS})
+
+            message(STATUS "NUNROLL = ${NUNROLL}")
+        endif(USE_CUDA)
+    endif(OVERWRITE_DEFAULT)
 endif(GPU_EXECUTION)
 
 # add subdirectories

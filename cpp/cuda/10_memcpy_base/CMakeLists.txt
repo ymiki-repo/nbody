@@ -17,6 +17,9 @@ find_package(CUDA REQUIRED)
 
 # apply common settings
 include(${USER_MODULE_PATH}/apply_common_settings.cmake)
+target_compile_definitions(${PROJECT_NAME} PUBLIC
+    $<$<BOOL:${OVERWRITE_DEFAULT}>:NTHREADS=\(${NTHREADS}U\)>
+)
 
 if(${NVIDIA_GPU_HARD} EQUAL ${NVIDIA_GPU_SOFT})
     set_property(TARGET ${PROJECT_NAME} PROPERTY CUDA_ARCHITECTURES ${NVIDIA_GPU_HARD})
@@ -25,7 +28,3 @@ else(${NVIDIA_GPU_HARD} EQUAL ${NVIDIA_GPU_SOFT})
         $<$<COMPILE_LANGUAGE:CUDA>:-gencode arch=compute_${NVIDIA_GPU_SOFT},code=sm_${NVIDIA_GPU_HARD}>
     )
 endif(${NVIDIA_GPU_HARD} EQUAL ${NVIDIA_GPU_SOFT})
-
-target_compile_definitions(${PROJECT_NAME} PUBLIC
-    NTHREADS=\(${NTHREADS}U\)
-)
