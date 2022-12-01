@@ -32,11 +32,11 @@
 constexpr type::flt_acc newton = AS_FLT_ACC(1.0);  ///< gravitational constant
 
 #ifndef NTHREADS
-constexpr type::int_idx NTHREADS = 256U;
+constexpr type::int_idx NTHREADS = 512U;
 #endif  // NTHREADS
 
 #ifndef NUNROLL
-#define NUNROLL (128)
+#define NUNROLL (256)
 #endif  // NUNROLL
 
 #if NUNROLL == 1
@@ -68,6 +68,8 @@ constexpr type::int_idx NTHREADS = 256U;
 ///
 constexpr auto BLOCKSIZE(const type::int_idx num, const type::int_idx thread) { return (1U + ((num - 1U) / thread)); }
 
+extern __shared__ type::fp_m dynamic_shmem[];  ///< dynamically allocated shared memory
+
 ///
 /// @brief calculate gravitational acceleration on accelerator device
 ///
@@ -91,8 +93,10 @@ __global__ void calc_acc_device(
   type::acceleration ai = {AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0)};
   type::jerk ji = {AS_FLT_JRK(0.0), AS_FLT_JRK(0.0), AS_FLT_JRK(0.0)};
 
-  __shared__ type::position jpos_shmem[NTHREADS];
-  __shared__ type::velocity jvel_shmem[NTHREADS];
+  //   __shared__ type::position jpos_shmem[NTHREADS];
+  //   __shared__ type::velocity jvel_shmem[NTHREADS];
+  type::position *jpos_shmem = (type::position *)dynamic_shmem;
+  type::velocity *jvel_shmem = (type::velocity *)&jpos_shmem[NTHREADS];
 
   // force evaluation
   for (type::int_idx jh = 0U; jh < Nj; jh += NTHREADS) {
@@ -162,7 +166,8 @@ __global__ void calc_acc_device(
 static inline void calc_acc(
     const type::int_idx Ni, const type::position *const ipos, const type::velocity *const ivel, type::acceleration *__restrict iacc, type::jerk *__restrict ijrk,
     const type::int_idx Nj, const type::position *const jpos, const type::velocity *const jvel, const type::fp_l eps2) {
-  calc_acc_device<<<BLOCKSIZE(Ni, NTHREADS), NTHREADS>>>(ipos, ivel, iacc, ijrk, Nj, jpos, jvel, eps2);
+  //   calc_acc_device<<<BLOCKSIZE(Ni, NTHREADS), NTHREADS>>>(ipos, ivel, iacc, ijrk, Nj, jpos, jvel, eps2);
+  calc_acc_device<<<BLOCKSIZE(Ni, NTHREADS), NTHREADS, (sizeof(type::position) + sizeof(type::velocity)) * NTHREADS>>>(ipos, ivel, iacc, ijrk, Nj, jpos, jvel, eps2);
 }
 
 ///
@@ -269,10 +274,14 @@ __global__ void guess_initial_dt_device(
   auto cy = AS_FP_M(0.0);
   auto cz = AS_FP_M(0.0);
 
-  __shared__ type::position jpos_shmem[NTHREADS];
-  __shared__ type::velocity jvel_shmem[NTHREADS];
-  __shared__ type::acceleration jacc_shmem[NTHREADS];
-  __shared__ type::jerk jjrk_shmem[NTHREADS];
+  //   __shared__ type::position jpos_shmem[NTHREADS];
+  //   __shared__ type::velocity jvel_shmem[NTHREADS];
+  //   __shared__ type::acceleration jacc_shmem[NTHREADS];
+  //   __shared__ type::jerk jjrk_shmem[NTHREADS];
+  type::position *jpos_shmem = (type::position *)dynamic_shmem;
+  type::velocity *jvel_shmem = (type::velocity *)&jpos_shmem[NTHREADS];
+  type::acceleration *jacc_shmem = (type::acceleration *)&jvel_shmem[NTHREADS];
+  type::jerk *jjrk_shmem = (type::jerk *)&jacc_shmem[NTHREADS];
 
   // force evaluation
   for (type::int_idx jh = 0U; jh < Nj; jh += NTHREADS) {
@@ -371,7 +380,8 @@ static inline void guess_initial_dt(
     const type::int_idx Ni, const type::position *const ipos, const type::velocity *const ivel, const type::acceleration *const iacc, const type::jerk *const ijrk,
     const type::int_idx Nj, const type::position *const jpos, const type::velocity *const jvel, const type::acceleration *const jacc, const type::jerk *const jjrk,
     const type::fp_l eps2, const type::fp_m eta, type::fp_m *__restrict dt) {
-  guess_initial_dt_device<<<BLOCKSIZE(Ni, NTHREADS), NTHREADS>>>(ipos, ivel, iacc, ijrk, Nj, jpos, jvel, jacc, jjrk, eps2, eta, dt);
+  //   guess_initial_dt_device<<<BLOCKSIZE(Ni, NTHREADS), NTHREADS>>>(ipos, ivel, iacc, ijrk, Nj, jpos, jvel, jacc, jjrk, eps2, eta, dt);
+  guess_initial_dt_device<<<BLOCKSIZE(Ni, NTHREADS), NTHREADS, (sizeof(type::position) + sizeof(type::velocity) + sizeof(type::acceleration) + sizeof(type::jerk)) * NTHREADS>>>(ipos, ivel, iacc, ijrk, Nj, jpos, jvel, jacc, jjrk, eps2, eta, dt);
 }
 
 ///
@@ -864,11 +874,13 @@ static inline void configure_gpu() {
 
   // estimate required capacity of shared memory
   int32_t N_block;
-  cudaOccupancyMaxActiveBlocksPerMultiprocessor(&N_block, calc_acc_device, NTHREADS, 0);
-  cudaFuncSetAttribute(calc_acc_device, cudaFuncAttributePreferredSharedMemoryCarveout, static_cast<int32_t>(std::ceil(static_cast<float>((sizeof(type::position) + sizeof(type::velocity)) * N_block * NTHREADS) / static_cast<float>(prop.sharedMemPerBlock))));
+  //   cudaOccupancyMaxActiveBlocksPerMultiprocessor(&N_block, calc_acc_device, NTHREADS, 0);
+  cudaOccupancyMaxActiveBlocksPerMultiprocessor(&N_block, calc_acc_device, NTHREADS, (sizeof(type::position) + sizeof(type::velocity)) * NTHREADS);
+  cudaFuncSetAttribute(calc_acc_device, cudaFuncAttributePreferredSharedMemoryCarveout, static_cast<int32_t>(std::ceil(static_cast<float>((sizeof(type::position) + sizeof(type::velocity)) * NTHREADS * N_block) / static_cast<float>(prop.sharedMemPerBlock))));
 #ifndef BENCHMARK_MODE
-  cudaOccupancyMaxActiveBlocksPerMultiprocessor(&N_block, guess_initial_dt_device, NTHREADS, 0);
-  cudaFuncSetAttribute(guess_initial_dt_device, cudaFuncAttributePreferredSharedMemoryCarveout, static_cast<int32_t>(std::ceil(static_cast<float>((sizeof(type::position) + sizeof(type::velocity) + sizeof(type::acceleration) + sizeof(type::jerk)) * N_block * NTHREADS) / static_cast<float>(prop.sharedMemPerBlock))));
+  //   cudaOccupancyMaxActiveBlocksPerMultiprocessor(&N_block, guess_initial_dt_device, NTHREADS, 0);
+  cudaOccupancyMaxActiveBlocksPerMultiprocessor(&N_block, guess_initial_dt_device, NTHREADS, (sizeof(type::position) + sizeof(type::velocity) + sizeof(type::acceleration) + sizeof(type::jerk)) * NTHREADS);
+  cudaFuncSetAttribute(guess_initial_dt_device, cudaFuncAttributePreferredSharedMemoryCarveout, static_cast<int32_t>(std::ceil(static_cast<float>((sizeof(type::position) + sizeof(type::velocity) + sizeof(type::acceleration) + sizeof(type::jerk)) * NTHREADS * N_block) / static_cast<float>(prop.sharedMemPerBlock))));
 #endif  // BENCHMARK_MODE
 
   // below functions do not utilize the shared memory, so maximize the capacity of the L1 cache (0% for shared memory)

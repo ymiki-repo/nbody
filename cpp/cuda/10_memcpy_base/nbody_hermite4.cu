@@ -32,7 +32,7 @@
 constexpr type::flt_acc newton = AS_FLT_ACC(1.0);  ///< gravitational constant
 
 #ifndef NTHREADS
-constexpr type::int_idx NTHREADS = 256U;
+constexpr type::int_idx NTHREADS = 128U;
 #endif  // NTHREADS
 
 ///
