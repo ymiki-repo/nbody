@@ -36,7 +36,7 @@ constexpr type::int_idx NTHREADS = 512U;
 #endif  // NTHREADS
 
 #ifndef NUNROLL
-#define NUNROLL (256)
+#define NUNROLL (128)
 #endif  // NUNROLL
 
 #if NUNROLL == 1

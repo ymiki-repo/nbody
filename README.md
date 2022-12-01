@@ -219,6 +219,45 @@ make  # if ninja-build is missing
   ```
 
   </details>
+
+## Example of performance measurements
+
+### 2nd-order Leap-frog scheme
+
+* include potential, FP_L = FP_M = 32, N = 4M
+  * assume 24 Flops per interaction
+* NVIDIA A100 (SXM, 40GB), CUDA 11.4 or NVIDIA HPC SDK 22.7 (Aquarius)
+
+| method | variant | TFlop/s | configuration |
+| ---- | ---- | ---- | ---- |
+| CUDA | baseline | 8.42 | 128 threads per block |
+| CUDA | rsqrtf() | 13.2 | 1024 threads per block |
+| CUDA | rsqrtf(), shmem | 13.6 | 1024 threads per block, 8 unrolls |
+| OpenACC | | 7.75 | 128 threads per block |
+| OpenACC | -Mfprelaxed=rsqrt | 11.9 | 1024 threads per block |
+| OpenMP | distribute | 7.63 | 256 threads per block |
+| OpenMP | distribute, -Mfprelaxed=rsqrt | 11.6 | 256 threads per block |
+| OpenMP | loop | 7.75 | N/A |
+| OpenMP | loop, -Mfprelaxed=rsqrt | 11.7 | N/A |
+| stdpar | | 7.18 | N/A |
+| stdpar | -Mfprelaxed=rsqrt | 7.18 | N/A |
+
+### 4th-order Hermite scheme
+
+* include potential, FP_L = FP_M = 64, N = 4M
+  * assume 46 Flops per interaction
+* NVIDIA A100 (SXM, 40GB), CUDA 11.4 or NVIDIA HPC SDK 22.7 (Aquarius)
+
+| method | variant | TFlop/s | configuration |
+| ---- | ---- | ---- | ---- |
+| CUDA | baseline | 4.93 | 128 threads per block |
+| CUDA | rsqrtf() + Newton--Raphson | 6.43 | 1024 threads per block |
+| CUDA | rsqrtf() + Newton--Raphson, shmem | 6.79 | 512 threads per block, 128 unrolls |
+| OpenACC | | 4.78 | 128 threads per block |
+| OpenMP | distribute | 4.60 | 128 threads per block |
+| OpenMP | loop | 4.78 | N/A |
+| stdpar | | 4.32 | N/A |
+
 ## Profiling
 
 ### NVIDIA GPU向け
