@@ -1,11 +1,17 @@
 # for NVIDIA HPC SDK
 if("${CMAKE_CXX_COMPILER_ID}" MATCHES "NVHPC")
-    option(RELAX_RSQRT_ACCURACY "On to relax precision for reciprocal square root to accelerate simulations" OFF)
+    option(RELAX_RSQRT_ACCURACY "On to relax precision for reciprocal square root to accelerate simulations; FP_L = 32 is necessary to use this option" ON)
+
+    if(NOT ${FP_L} EQUAL 32)
+        set(RELAX_RSQRT_ACCURACY OFF)
+    endif(NOT ${FP_L} EQUAL 32)
+
     message(STATUS "RELAX_RSQRT_ACCURACY is ${RELAX_RSQRT_ACCURACY}")
 endif("${CMAKE_CXX_COMPILER_ID}" MATCHES "NVHPC")
 
 # set compilation flags
 target_compile_options(${PROJECT_NAME} PRIVATE
+
     # warnings
     $<$<OR:$<CXX_COMPILER_ID:Intel>,$<CXX_COMPILER_ID:GNU>>:-Wall -Wextra -Wshadow -Wcast-qual -Wconversion -Wno-sign-conversion -Wdisabled-optimization -Wuninitialized -Winit-self -Wsign-promo -Wundef -Wunused -Wmissing-declarations>
     $<$<CXX_COMPILER_ID:Intel>:-Wcheck -Wdeprecated -Wformat -Wsign-compare -Wstrict-prototypes -Wtrigraphs -Wwrite-strings -Wunknown-pragmas -Wunused-function -Wunused-variable>
@@ -38,6 +44,7 @@ target_compile_options(${PROJECT_NAME} PRIVATE
 
     # flags for CUDA
     $<$<COMPILE_LANGUAGE:CUDA>:-Xptxas -v,-warn-spills,-warn-lmem-usage -lineinfo>
+
     # NOTE: to call a constexpr __host__ function from a __global__ function (experimental flag)
     $<$<COMPILE_LANGUAGE:CUDA>:--expt-relaxed-constexpr>
 )
