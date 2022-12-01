@@ -62,28 +62,28 @@ __global__ void calc_acc_device(const type::position *const ipos, type::accelera
     const auto pj = jpos[jj];
 
     // calculate particle-particle interaction
-    const auto dx = type::cast2fp_l(pj.x - pi.x);
-    const auto dy = type::cast2fp_l(pj.y - pi.y);
-    const auto dz = type::cast2fp_l(pj.z - pi.z);
+    const auto dx = pj.x - pi.x;
+    const auto dy = pj.y - pi.y;
+    const auto dz = pj.z - pi.z;
     const auto r2 = eps2 + dx * dx + dy * dy + dz * dz;
 #if FP_L <= 32
-    const auto r_inv = rsqrtf(r2);
+    const auto r_inv = rsqrtf(type::cast2fp_l(r2));
 #else   // FP_L <= 32
     // obtain reciprocal square root by using Newton--Raphson method instead of 1.0 / sqrt(r2) in FP64
     const auto seed = type::cast2fp_l(rsqrtf(static_cast<float>(r2)));
     const auto r_inv = AS_FP_L(0.5) * (AS_FP_L(3.0) - r2 * seed * seed) * seed;
 #endif  // FP_L <= 32
     const auto r2_inv = r_inv * r_inv;
-    const auto alp = type::cast2fp_l(pj.w) * r_inv * r2_inv;
+    const auto alp = pj.w * CAST2ACC(r_inv * r2_inv);
 
     // force accumulation
-    ai.x += CAST2ACC(alp * dx);
-    ai.y += CAST2ACC(alp * dy);
-    ai.z += CAST2ACC(alp * dz);
+    ai.x += alp * dx;
+    ai.y += alp * dy;
+    ai.z += alp * dz;
 
 #ifdef CALCULATE_POTENTIAL
     // gravitational potential
-    ai.w += CAST2ACC(alp * r2);
+    ai.w += alp * r2;
 #endif  // CALCULATE_POTENTIAL
   }
   iacc[ii] = ai;

@@ -56,22 +56,22 @@ static inline void calc_acc(const type::int_idx Ni, const type::position *const 
       const auto pj = jpos[jj];
 
       // calculate particle-particle interaction
-      const auto dx = type::cast2fp_l(pj.x - pi.x);
-      const auto dy = type::cast2fp_l(pj.y - pi.y);
-      const auto dz = type::cast2fp_l(pj.z - pi.z);
+      const auto dx = pj.x - pi.x;
+      const auto dy = pj.y - pi.y;
+      const auto dz = pj.z - pi.z;
       const auto r2 = eps2 + dx * dx + dy * dy + dz * dz;
-      const auto r_inv = AS_FP_L(1.0) / std::sqrt(r2);
+      const auto r_inv = AS_FP_L(1.0) / std::sqrt(type::cast2fp_l(r2));
       const auto r2_inv = r_inv * r_inv;
-      const auto alp = type::cast2fp_l(pj.w) * r_inv * r2_inv;
+      const auto alp = pj.w * CAST2ACC(r_inv * r2_inv);
 
       // force accumulation
-      ai.x += CAST2ACC(alp * dx);
-      ai.y += CAST2ACC(alp * dy);
-      ai.z += CAST2ACC(alp * dz);
+      ai.x += alp * dx;
+      ai.y += alp * dy;
+      ai.z += alp * dz;
 
 #ifdef CALCULATE_POTENTIAL
       // gravitational potential
-      ai.w += CAST2ACC(alp * r2);
+      ai.w += alp * r2;
 #endif  // CALCULATE_POTENTIAL
     }
     iacc[ii] = ai;

@@ -112,38 +112,38 @@ __global__ void calc_acc_device(
       const auto vj = jvel_shmem[jj];
 
       // calculate acceleration
-      const auto dx = type::cast2fp_l(pj.x - pi.x);
-      const auto dy = type::cast2fp_l(pj.y - pi.y);
-      const auto dz = type::cast2fp_l(pj.z - pi.z);
+      const auto dx = pj.x - pi.x;
+      const auto dy = pj.y - pi.y;
+      const auto dz = pj.z - pi.z;
       const auto r2 = eps2 + dx * dx + dy * dy + dz * dz;
 #if FP_L <= 32
-      const auto r_inv = rsqrtf(r2);
+      const auto r_inv = rsqrtf(type::cast2fp_l(r2));
 #else   // FP_L <= 32
       // obtain reciprocal square root by using Newton--Raphson method instead of 1.0 / sqrt(r2) in FP64
       const auto seed = type::cast2fp_l(rsqrtf(static_cast<float>(r2)));
       const auto r_inv = AS_FP_L(0.5) * (AS_FP_L(3.0) - r2 * seed * seed) * seed;
 #endif  // FP_L <= 32
       const auto r2_inv = r_inv * r_inv;
-      const auto alp = type::cast2fp_l(pj.w) * r_inv * r2_inv;
+      const auto alp = pj.w * CAST2ACC(r_inv * r2_inv);
       // force accumulation
-      ai.x += CAST2ACC(alp * dx);
-      ai.y += CAST2ACC(alp * dy);
-      ai.z += CAST2ACC(alp * dz);
+      ai.x += alp * dx;
+      ai.y += alp * dy;
+      ai.z += alp * dz;
 
 #ifdef CALCULATE_POTENTIAL
       // gravitational potential
-      ai.w += CAST2ACC(alp * r2);
+      ai.w += alp * r2;
 #endif  // CALCULATE_POTENTIAL
 
       // calculate jerk
-      const auto dvx = type::cast2fp_l(vj.x - vi.x);
-      const auto dvy = type::cast2fp_l(vj.y - vi.y);
-      const auto dvz = type::cast2fp_l(vj.z - vi.z);
-      const auto bet = AS_FP_L(-3.0) * (dx * dvx + dy * dvy + dz * dvz) * r2_inv;  ///< 3 * beta
+      const auto dvx = vj.x - vi.x;
+      const auto dvy = vj.y - vi.y;
+      const auto dvz = vj.z - vi.z;
+      const auto bet = AS_FP_M(-3.0) * (dx * dvx + dy * dvy + dz * dvz) * CAST2JRK(r2_inv);  ///< 3 * beta
       // jerk accumulation
-      ji.x += CAST2JRK(alp * (dvx + bet * dx));
-      ji.y += CAST2JRK(alp * (dvy + bet * dy));
-      ji.z += CAST2JRK(alp * (dvz + bet * dz));
+      ji.x += alp * (dvx + bet * dx);
+      ji.y += alp * (dvy + bet * dy);
+      ji.z += alp * (dvz + bet * dz);
     }
   }
   iacc[ii] = ai;
@@ -301,49 +301,49 @@ __global__ void guess_initial_dt_device(
       const auto j_j = jjrk_shmem[jj];
 
       // calculate acceleration
-      const auto dx = type::cast2fp_l(p_j.x - p_i.x);
-      const auto dy = type::cast2fp_l(p_j.y - p_i.y);
-      const auto dz = type::cast2fp_l(p_j.z - p_i.z);
+      const auto dx = p_j.x - p_i.x;
+      const auto dy = p_j.y - p_i.y;
+      const auto dz = p_j.z - p_i.z;
       const auto r2 = eps2 + dx * dx + dy * dy + dz * dz;
 #if FP_L <= 32
-      const auto r_inv = rsqrtf(r2);
+      const auto r_inv = rsqrtf(type::cast2fp_l(r2));
 #else   // FP_L <= 32
       // obtain reciprocal square root by using Newton--Raphson method instead of 1.0 / sqrt(r2) in FP64
       const auto seed = type::cast2fp_l(rsqrtf(static_cast<float>(r2)));
       const auto r_inv = AS_FP_L(0.5) * (AS_FP_L(3.0) - r2 * seed * seed) * seed;
 #endif  // FP_L <= 32
-      const auto r2_inv = r_inv * r_inv;
-      const auto alp = type::cast2fp_l(p_j.w) * r_inv * r2_inv;
+      const auto r2_inv = type::cast2fp_m(r_inv * r_inv);
+      const auto alp = p_j.w * type::cast2fp_m(r_inv) * r2_inv;
 
       // calculate jerk
-      const auto dvx = type::cast2fp_l(v_j.x - v_i.x);
-      const auto dvy = type::cast2fp_l(v_j.y - v_i.y);
-      const auto dvz = type::cast2fp_l(v_j.z - v_i.z);
+      const auto dvx = v_j.x - v_i.x;
+      const auto dvy = v_j.y - v_i.y;
+      const auto dvz = v_j.z - v_i.z;
       const auto bet = -(dx * dvx + dy * dvy + dz * dvz) * r2_inv;
 
       // calculate snap
-      const auto dax = type::cast2fp_l(a_j.x - a_i.x);
-      const auto day = type::cast2fp_l(a_j.y - a_i.y);
-      const auto daz = type::cast2fp_l(a_j.z - a_i.z);
+      const auto dax = a_j.x - a_i.x;
+      const auto day = a_j.y - a_i.y;
+      const auto daz = a_j.z - a_i.z;
       const auto bet2 = bet * bet;
-      const auto gam = AS_FP_L(5.0) * bet2 - (dvx * dvx + dvy * dvy + dvz * dvz + dx * dax + dy * day + dz * daz) * r2_inv;
-      const auto s0 = AS_FP_L(6.0) * bet;
-      const auto s1 = AS_FP_L(3.0) * gam;
-      sx += type::cast2fp_m(alp * (dax + s0 * dvx + s1 * dx));
-      sy += type::cast2fp_m(alp * (day + s0 * dvy + s1 * dy));
-      sz += type::cast2fp_m(alp * (daz + s0 * dvz + s1 * dz));
+      const auto gam = AS_FP_M(5.0) * bet2 - (dvx * dvx + dvy * dvy + dvz * dvz + dx * dax + dy * day + dz * daz) * r2_inv;
+      const auto s0 = AS_FP_M(6.0) * bet;
+      const auto s1 = AS_FP_M(3.0) * gam;
+      sx += alp * (dax + s0 * dvx + s1 * dx);
+      sy += alp * (day + s0 * dvy + s1 * dy);
+      sz += alp * (daz + s0 * dvz + s1 * dz);
 
       // calculate crackle
-      const auto djx = type::cast2fp_l(j_j.x - j_i.x);
-      const auto djy = type::cast2fp_l(j_j.y - j_i.y);
-      const auto djz = type::cast2fp_l(j_j.z - j_i.z);
-      const auto del = AS_FP_L(5.0) * bet * (s1 - AS_FP_L(8.0) * bet2) - (dx * djx + dy * djy + dz * djz + AS_FP_L(3.0) * (dvx * dax + dvy * day + dvz * daz)) * r2_inv;
-      const auto c0 = AS_FP_L(9.0) * bet;
-      const auto c1 = AS_FP_L(9.0) * gam;
-      const auto c2 = AS_FP_L(3.0) * del;
-      cx += type::cast2fp_m(alp * (djx + c0 * dax + c1 * dvx + c2 * dx));
-      cy += type::cast2fp_m(alp * (djy + c0 * day + c1 * dvy + c2 * dy));
-      cz += type::cast2fp_m(alp * (djz + c0 * daz + c1 * dvz + c2 * dz));
+      const auto djx = j_j.x - j_i.x;
+      const auto djy = j_j.y - j_i.y;
+      const auto djz = j_j.z - j_i.z;
+      const auto del = AS_FP_M(5.0) * bet * (s1 - AS_FP_M(8.0) * bet2) - (dx * djx + dy * djy + dz * djz + AS_FP_M(3.0) * (dvx * dax + dvy * day + dvz * daz)) * r2_inv;
+      const auto c0 = AS_FP_M(9.0) * bet;
+      const auto c1 = AS_FP_M(9.0) * gam;
+      const auto c2 = AS_FP_M(3.0) * del;
+      cx += alp * (djx + c0 * dax + c1 * dvx + c2 * dx);
+      cy += alp * (djy + c0 * day + c1 * dvy + c2 * dy);
+      cz += alp * (djz + c0 * daz + c1 * dvz + c2 * dz);
     }
   }
 
