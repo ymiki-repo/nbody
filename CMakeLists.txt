@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.1) # to set CMAKE_CXX_STANDARD
+cmake_minimum_required(VERSION 3.20) # NVIDIA HPC SDK compilers are supported in 3.20+
 cmake_policy(SET CMP0104 OLD) # suppress warning CMP0104: (CUDA_ARCHITECTURES is empty)
 
 # enable_testing() # activate CTest

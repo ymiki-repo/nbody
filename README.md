@@ -16,7 +16,7 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
 ## How to compile
 
 * Required packages:
-  * CMake (>= 3.1)
+  * CMake (>= 3.20)
   * Boost
   * HDF5
   * <details><summary>How to load modules on Wisteria/BDEC-01 (Aquarius): NVIDIA HPC SDK</summary>
