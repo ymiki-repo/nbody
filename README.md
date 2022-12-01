@@ -206,6 +206,19 @@ make  # if ninja-build is missing
 
 * check the output figures in fig/ -->
 
+
+## How to perform benchmark
+
+* set -DBENCHMARK_MODE=ON for CMake
+* set -DOVERWRITE_DEFAULT=ON if change NTHREADS and NUNROLL
+
+* <details><summary>Wisteria/BDEC-01 (Fujitsu TCS)</summary>
+
+  ```sh
+  pjsub -x EXEC=bin/cuda_memcpy_shmem,OPTION="--num_min=1048576 --num_max=4194304 --num_bin=3 --file=cuda_memcpy_shmem" sh/wisteria/run_cuda.sh # run an $N$-body simulation with option (binary is bin/cuda_memcpy_shmem, FILENAME is cuda_memcpy_shmem), base compiler is cuda
+  ```
+
+  </details>
 ## Profiling
 
 ### NVIDIA GPU向け
