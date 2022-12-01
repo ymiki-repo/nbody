@@ -45,7 +45,7 @@ constexpr type::int_idx NTHREADS = 1024U;
 /// @param[in] eps2 square of softening length
 /// @param[in] ivel velocity of i-particles
 ///
-static inline void calc_acc(const type::int_idx Ni, const type::position *const ipos, type::acceleration *__restrict iacc, const type::int_idx Nj, const type::position *const jpos, const type::fp_l eps2) {
+static inline void calc_acc(const type::int_idx Ni, const type::position *const ipos, type::acceleration *__restrict iacc, const type::int_idx Nj, const type::position *const jpos, const type::flt_pos eps2) {
 #pragma acc kernels
 #pragma acc loop independent vector(NTHREADS)
   for (type::int_idx ii = 0U; ii < Ni; ii++) {

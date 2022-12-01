@@ -84,7 +84,7 @@ extern __shared__ type::fp_m dynamic_shmem[];  ///< dynamically allocated shared
 ///
 __global__ void calc_acc_device(
     const type::position *const ipos, const type::velocity *const ivel, type::acceleration *__restrict iacc, type::jerk *__restrict ijrk,
-    const type::int_idx Nj, const type::position *const jpos, const type::velocity *const jvel, const type::fp_l eps2) {
+    const type::int_idx Nj, const type::position *const jpos, const type::velocity *const jvel, const type::flt_pos eps2) {
   const type::int_idx ii = blockIdx.x * blockDim.x + threadIdx.x;
 
   // initialization
@@ -165,7 +165,7 @@ __global__ void calc_acc_device(
 ///
 static inline void calc_acc(
     const type::int_idx Ni, const type::position *const ipos, const type::velocity *const ivel, type::acceleration *__restrict iacc, type::jerk *__restrict ijrk,
-    const type::int_idx Nj, const type::position *const jpos, const type::velocity *const jvel, const type::fp_l eps2) {
+    const type::int_idx Nj, const type::position *const jpos, const type::velocity *const jvel, const type::flt_pos eps2) {
   //   calc_acc_device<<<BLOCKSIZE(Ni, NTHREADS), NTHREADS>>>(ipos, ivel, iacc, ijrk, Nj, jpos, jvel, eps2);
   calc_acc_device<<<BLOCKSIZE(Ni, NTHREADS), NTHREADS, (sizeof(type::position) + sizeof(type::velocity)) * NTHREADS>>>(ipos, ivel, iacc, ijrk, Nj, jpos, jvel, eps2);
 }
@@ -259,7 +259,7 @@ static inline void trim_acc(const type::int_idx Ni, type::acceleration *__restri
 __global__ void guess_initial_dt_device(
     const type::position *const ipos, const type::velocity *const ivel, const type::acceleration *const iacc, const type::jerk *const ijrk,
     const type::int_idx Nj, const type::position *const jpos, const type::velocity *const jvel, const type::acceleration *const jacc, const type::jerk *const jjrk,
-    const type::fp_l eps2, const type::fp_m eta, type::fp_m *__restrict dt) {
+    const type::flt_pos eps2, const type::fp_m eta, type::fp_m *__restrict dt) {
   const type::int_idx ii = blockIdx.x * blockDim.x + threadIdx.x;
 
   // initialization
@@ -379,7 +379,7 @@ __global__ void guess_initial_dt_device(
 static inline void guess_initial_dt(
     const type::int_idx Ni, const type::position *const ipos, const type::velocity *const ivel, const type::acceleration *const iacc, const type::jerk *const ijrk,
     const type::int_idx Nj, const type::position *const jpos, const type::velocity *const jvel, const type::acceleration *const jacc, const type::jerk *const jjrk,
-    const type::fp_l eps2, const type::fp_m eta, type::fp_m *__restrict dt) {
+    const type::flt_pos eps2, const type::fp_m eta, type::fp_m *__restrict dt) {
   //   guess_initial_dt_device<<<BLOCKSIZE(Ni, NTHREADS), NTHREADS>>>(ipos, ivel, iacc, ijrk, Nj, jpos, jvel, jacc, jjrk, eps2, eta, dt);
   guess_initial_dt_device<<<BLOCKSIZE(Ni, NTHREADS), NTHREADS, (sizeof(type::position) + sizeof(type::velocity) + sizeof(type::acceleration) + sizeof(type::jerk)) * NTHREADS>>>(ipos, ivel, iacc, ijrk, Nj, jpos, jvel, jacc, jjrk, eps2, eta, dt);
 }

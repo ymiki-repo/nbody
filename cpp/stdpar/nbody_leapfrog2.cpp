@@ -44,7 +44,7 @@ constexpr type::flt_acc newton = AS_FLT_ACC(1.0);  ///< gravitational constant
 /// @param[in] eps2 square of softening length
 /// @param[in] ivel velocity of i-particles
 ///
-static inline void calc_acc(const type::int_idx Ni, const type::position *const ipos, type::acceleration *__restrict iacc, const type::int_idx Nj, const type::position *const jpos, const type::fp_l eps2) {
+static inline void calc_acc(const type::int_idx Ni, const type::position *const ipos, type::acceleration *__restrict iacc, const type::int_idx Nj, const type::position *const jpos, const type::flt_pos eps2) {
   std::for_each_n(std::execution::par, boost::iterators::counting_iterator<type::int_idx>(0U), Ni, [=](const type::int_idx ii) {
     // initialization
     const auto pi = ipos[ii];

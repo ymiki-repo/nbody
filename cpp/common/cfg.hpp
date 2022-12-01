@@ -25,7 +25,7 @@ class config {
     boost::program_options::options_description opt("List of options");
     opt.add_options()(
         "file", boost::program_options::value<std::string>()->default_value("collapse"), "Name of the output files")(
-        "softening", boost::program_options::value<type::fp_l>()->default_value(AS_FP_L(1.5625e-2)), "Softening length (Plummer softening)")(
+        "softening", boost::program_options::value<type::fp_l>()->default_value(AS_FLT_POS(1.5625e-2)), "Softening length (Plummer softening)")(
         "mass", boost::program_options::value<type::flt_pos>()->default_value(AS_FLT_POS(1.0)), "Total mass of the system")(
         "radius", boost::program_options::value<type::flt_pos>()->default_value(AS_FLT_POS(1.0)), "Radius of the initial sphere")(
         "virial", boost::program_options::value<type::flt_vel>()->default_value(AS_FLT_VEL(0.2)), "Virial ratio of the initial condition")(
@@ -55,7 +55,7 @@ class config {
     }
 
     file = vm["file"].as<std::string>();
-    eps = vm["softening"].as<type::fp_l>();
+    eps = vm["softening"].as<type::flt_pos>();
     M_tot = vm["mass"].as<type::flt_pos>();
     radius = vm["radius"].as<type::flt_pos>();
     virial = vm["virial"].as<type::flt_vel>();
@@ -172,7 +172,7 @@ class config {
 
  private:
   std::string file = "collapse";           ///< name of the simulation
-  type::fp_l eps = AS_FP_L(0.0);           ///< softening length
+  type::flt_pos eps = AS_FLT_POS(0.0);     ///< softening length
   type::flt_pos M_tot = AS_FLT_POS(0.0);   ///< total mass of the system
   type::flt_pos radius = AS_FLT_POS(0.0);  ///< radius of the initial sphere
   type::flt_vel virial = AS_FLT_VEL(0.0);  ///< Virial ratio of the initial condition

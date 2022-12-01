@@ -55,7 +55,7 @@ constexpr type::int_idx NTHREADS = 256U;
 ///
 static inline void calc_acc(
     const type::int_idx Ni, const type::position *const ipos, const type::velocity *const ivel, type::acceleration *__restrict iacc, type::jerk *__restrict ijrk,
-    const type::int_idx Nj, const type::position *const jpos, const type::velocity *const jvel, const type::fp_l eps2) {
+    const type::int_idx Nj, const type::position *const jpos, const type::velocity *const jvel, const type::flt_pos eps2) {
   std::for_each_n(std::execution::par, boost::iterators::counting_iterator<type::int_idx>(0U), Ni, [=](const type::int_idx ii) {
     // initialization
     const auto pi = ipos[ii];
@@ -160,7 +160,7 @@ static inline void trim_acc(const type::int_idx Ni, type::acceleration *__restri
 static inline void guess_initial_dt(
     const type::int_idx Ni, const type::position *const ipos, const type::velocity *const ivel, const type::acceleration *const iacc, const type::jerk *const ijrk,
     const type::int_idx Nj, const type::position *const jpos, const type::velocity *const jvel, const type::acceleration *const jacc, const type::jerk *const jjrk,
-    const type::fp_l eps2, const type::fp_m eta, type::fp_m *__restrict dt) {
+    const type::flt_pos eps2, const type::fp_m eta, type::fp_m *__restrict dt) {
   std::for_each_n(std::execution::par, boost::iterators::counting_iterator<type::int_idx>(0U), Ni, [=](const type::int_idx ii) {
     // initialization
     const auto p_i = ipos[ii];

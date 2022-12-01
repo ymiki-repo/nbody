@@ -49,7 +49,7 @@ constexpr auto BLOCKSIZE(const type::int_idx num, const type::int_idx thread) { 
 /// @param[in] eps2 square of softening length
 /// @param[in] ivel velocity of i-particles
 ///
-__global__ void calc_acc_device(const type::position *const ipos, type::acceleration *__restrict iacc, const type::int_idx Nj, const type::position *const jpos, const type::fp_l eps2) {
+__global__ void calc_acc_device(const type::position *const ipos, type::acceleration *__restrict iacc, const type::int_idx Nj, const type::position *const jpos, const type::flt_pos eps2) {
   const type::int_idx ii = blockIdx.x * blockDim.x + threadIdx.x;
 
   // initialization
@@ -100,7 +100,7 @@ __global__ void calc_acc_device(const type::position *const ipos, type::accelera
 /// @param[in] eps2 square of softening length
 /// @param[in] ivel velocity of i-particles
 ///
-static inline void calc_acc(const type::int_idx Ni, const type::position *const ipos, type::acceleration *__restrict iacc, const type::int_idx Nj, const type::position *const jpos, const type::fp_l eps2) {
+static inline void calc_acc(const type::int_idx Ni, const type::position *const ipos, type::acceleration *__restrict iacc, const type::int_idx Nj, const type::position *const jpos, const type::flt_pos eps2) {
   calc_acc_device<<<BLOCKSIZE(Ni, NTHREADS), NTHREADS>>>(ipos, iacc, Nj, jpos, eps2);
 }
 
