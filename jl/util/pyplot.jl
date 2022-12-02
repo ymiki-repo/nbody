@@ -7,8 +7,8 @@ function config(; pkg="\\usepackage{physics,siunitx}")
     rcParams["ps.useafm"] = true
     rcParams["pdf.use14corefonts"] = true
     rcParams["text.usetex"] = true
-    # use packages
-    rcParams["text.latex.preamble"] = pkg
+    # use packages (physics.sty is missing on Wisteria/BDEC-01)
+    # rcParams["text.latex.preamble"] = pkg
     return nothing
 end
 

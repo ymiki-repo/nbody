@@ -6,8 +6,14 @@ function parse_cmd()
         help = "filename of the target files"
         arg_type = String
         default = "collapse"
-        "--pdf", "-p"
+        "--pdf"
         help = "generate figure in PDF format"
+        action = :store_true
+        "--png"
+        help = "generate figure in PNG format"
+        action = :store_true
+        "--svg"
+        help = "generate figure in SVG format"
         action = :store_true
     end
     return parse_args(cfg)
@@ -25,6 +31,8 @@ function main()
     # read options
     argv = parse_cmd()
     output_pdf = argv["pdf"]
+    output_png = argv["png"]
+    output_svg = argv["svg"]
 
     # set the target simulation results
     series = argv["target"]
@@ -61,7 +69,7 @@ function main()
     fig_csv = util_pyplot.set_Panel()
     fig_csv.ax[begin].plot(dat.time, abs.(dat.err_Etot), linestyle=util_pyplot.call(fig_csv.line), color=util_pyplot.call(fig_csv.color), linewidth=fig_csv.lw)
     fig_csv.ax[begin].set_xlabel(string(L"$t$"), fontsize=fig_csv.fs)
-    fig_csv.ax[begin].set_ylabel(L"$\abs{E(t) / E(t = 0) - 1}$", fontsize=fig_csv.fs)
+    fig_csv.ax[begin].set_ylabel(L"$\left|E(t) / E(t = 0) - 1\right|$", fontsize=fig_csv.fs)
     fig_csv.ax[begin].semilogy()
     fig_csv.ax[begin].grid()
 
@@ -90,18 +98,27 @@ function main()
     fig_spn.ax[begin].legend(handles, labels, numpoints=1, handlelength=2.0, loc="best", fontsize=fig_spn.fs)
 
     # save figures
-    fig_ene.fig.savefig(string("fig/", series, "_energy", ".png"), format="png", dpi=100, bbox_inches="tight")
-    fig_vir.fig.savefig(string("fig/", series, "_virial", ".png"), format="png", dpi=100, bbox_inches="tight")
-    fig_csv.fig.savefig(string("fig/", series, "_csv_ene", ".png"), format="png", dpi=100, bbox_inches="tight")
-    fig_mom.fig.savefig(string("fig/", series, "_csv_mom", ".png"), format="png", dpi=100, bbox_inches="tight")
-    fig_spn.fig.savefig(string("fig/", series, "_csv_spn", ".png"), format="png", dpi=100, bbox_inches="tight")
+	if output_png
+		fig_ene.fig.savefig(string("fig/", series, "_energy", ".png"), format="png", dpi=100, bbox_inches="tight")
+		fig_vir.fig.savefig(string("fig/", series, "_virial", ".png"), format="png", dpi=100, bbox_inches="tight")
+		fig_csv.fig.savefig(string("fig/", series, "_csv_ene", ".png"), format="png", dpi=100, bbox_inches="tight")
+		fig_mom.fig.savefig(string("fig/", series, "_csv_mom", ".png"), format="png", dpi=100, bbox_inches="tight")
+		fig_spn.fig.savefig(string("fig/", series, "_csv_spn", ".png"), format="png", dpi=100, bbox_inches="tight")
+	end
     if output_pdf
-        fig_ene.fig.savefig(string("fig/", series, "_energy", ".pdf"), format="pdf", bbox_inches="tight")
-        fig_vir.fig.savefig(string("fig/", series, "_virial", ".pdf"), format="pdf", bbox_inches="tight")
-        fig_csv.fig.savefig(string("fig/", series, "_csv_ene", ".pdf"), format="pdf", bbox_inches="tight")
-        fig_mom.fig.savefig(string("fig/", series, "_csv_mom", ".pdf"), format="pdf", bbox_inches="tight")
-        fig_spn.fig.savefig(string("fig/", series, "_csv_spn", ".pdf"), format="pdf", bbox_inches="tight")
+		fig_ene.fig.savefig(string("fig/", series, "_energy", ".pdf"), format="pdf", bbox_inches="tight")
+		fig_vir.fig.savefig(string("fig/", series, "_virial", ".pdf"), format="pdf", bbox_inches="tight")
+		fig_csv.fig.savefig(string("fig/", series, "_csv_ene", ".pdf"), format="pdf", bbox_inches="tight")
+		fig_mom.fig.savefig(string("fig/", series, "_csv_mom", ".pdf"), format="pdf", bbox_inches="tight")
+		fig_spn.fig.savefig(string("fig/", series, "_csv_spn", ".pdf"), format="pdf", bbox_inches="tight")
     end
+	if output_svg
+		fig_ene.fig.savefig(string("fig/", series, "_energy", ".svg"), format="svg", dpi=100, bbox_inches="tight")
+		fig_vir.fig.savefig(string("fig/", series, "_virial", ".svg"), format="svg", dpi=100, bbox_inches="tight")
+		fig_csv.fig.savefig(string("fig/", series, "_csv_ene", ".svg"), format="svg", dpi=100, bbox_inches="tight")
+		fig_mom.fig.savefig(string("fig/", series, "_csv_mom", ".svg"), format="svg", dpi=100, bbox_inches="tight")
+		fig_spn.fig.savefig(string("fig/", series, "_csv_spn", ".svg"), format="svg", dpi=100, bbox_inches="tight")
+	end
 
     PyPlot.close("all")
     return nothing

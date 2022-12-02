@@ -18,6 +18,10 @@ module load miniconda3
 # set environmental variables for Julia
 export JULIA_DEPOT_PATH=${ROOT_DIR}/.julia
 
-numactl --localalloc julia jl/plot/error.jl ${OPTION}
+# for texlive
+export HOME=${ROOT_DIR}
+
+# --png option is NOT work on Wisteria/BDEC-01 (dvipng is missing)
+numactl --localalloc julia jl/plot/error.jl --svg ${OPTION}
 
 exit 0

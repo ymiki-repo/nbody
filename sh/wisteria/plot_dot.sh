@@ -21,6 +21,9 @@ module load miniconda3
 # set environmental variables for Julia
 export JULIA_DEPOT_PATH=${ROOT_DIR}/.julia
 
+# for texlive
+export HOME=${ROOT_DIR}
+
 # set tmp for matplotlib
 MPL_CFG_DIR=/tmp/matplotlib
 
@@ -32,6 +35,7 @@ MPI_PROC_NODE=${PJM_MPI_PROC}
 # tentative implementation: this script assumes single socket execution
 MPI_PROC_SOCKET=${PJM_MPI_PROC}
 
-mpiexech -machinefile ${PJM_O_NODEINF} -n ${PJM_MPI_PROC} sh/wrapper/mpi_matplotlib.sh --wrapper-Nprocs_node=${MPI_PROC_NODE} --wrapper-Nprocs_socket=${MPI_PROC_SOCKET} --wrapper-mpl_cfg_dir=$MPL_CFG_DIR julia jl/plot/dot.jl ${OPTION}
+# --png option is NOT work on Wisteria/BDEC-01 (dvipng is missing)
+mpiexec -machinefile ${PJM_O_NODEINF} -n ${PJM_MPI_PROC} sh/wrapper/mpi_matplotlib.sh --wrapper-Nprocs_node=${MPI_PROC_NODE} --wrapper-Nprocs_socket=${MPI_PROC_SOCKET} --wrapper-mpl_cfg_dir=$MPL_CFG_DIR julia jl/plot/dot.jl --svg ${OPTION}
 
 exit 0

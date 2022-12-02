@@ -6,8 +6,14 @@ function parse_cmd()
         help = "filename of the target files"
         arg_type = String
         default = "collapse"
-        "--pdf", "-p"
+        "--pdf"
         help = "generate figure in PDF format"
+        action = :store_true
+        "--png"
+        help = "generate figure in PNG format"
+        action = :store_true
+        "--svg"
+        help = "generate figure in SVG format"
         action = :store_true
     end
     return parse_args(cfg)
@@ -29,7 +35,7 @@ include("../util/pyplot.jl")
 
 function draw_Cartesian_map(
     num::Integer, body::hdf5_nbody.Particles, series::String, id::SubString{String};
-    output_pdf::Bool=false
+    output_pdf::Bool=false, output_png::Bool=false, output_svg::Bool=false
 )
     fig_pp = util_pyplot.set_Panel(nx=2, ny=2)
     fig_pv = util_pyplot.set_Panel(nx=3, ny=1)
@@ -110,12 +116,18 @@ function draw_Cartesian_map(
     end
 
     # save figures
-    fig_pp.fig.savefig(string("fig/", series, "_pp", id, ".png"), format="png", dpi=100, bbox_inches="tight")
-    fig_pv.fig.savefig(string("fig/", series, "_pv", id, ".png"), format="png", dpi=100, bbox_inches="tight")
+	if output_png
+		fig_pp.fig.savefig(string("fig/", series, "_pp", id, ".png"), format="png", dpi=100, bbox_inches="tight")
+		fig_pv.fig.savefig(string("fig/", series, "_pv", id, ".png"), format="png", dpi=100, bbox_inches="tight")
+	end
     if output_pdf
         fig_pp.fig.savefig(string("fig/", series, "_pp", id, ".pdf"), format="pdf", bbox_inches="tight")
         fig_pv.fig.savefig(string("fig/", series, "_pv", id, ".pdf"), format="pdf", bbox_inches="tight")
     end
+	if output_svg
+		fig_pp.fig.savefig(string("fig/", series, "_pp", id, ".svg"), format="svg", dpi=100, bbox_inches="tight")
+		fig_pv.fig.savefig(string("fig/", series, "_pv", id, ".svg"), format="svg", dpi=100, bbox_inches="tight")
+	end
 
     fig_pp = nothing
     fig_pv = nothing
@@ -136,6 +148,8 @@ function main()
     # read options
     argv = parse_cmd()
     output_pdf = argv["pdf"]
+    output_png = argv["png"]
+    output_svg = argv["svg"]
 
     # set the series of simulation results
     series = argv["target"]
@@ -152,7 +166,7 @@ function main()
         dat = hdf5_nbody.read_particle(file, num)
         name, sid = split(filename(Path(file)), "_snp")
 
-        draw_Cartesian_map(num, dat, series, sid, output_pdf=output_pdf)
+        draw_Cartesian_map(num, dat, series, sid, output_pdf=output_pdf, output_png=output_png, output_svg=output_svg)
         dat = nothing
     end
 
