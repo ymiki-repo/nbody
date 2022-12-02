@@ -16,11 +16,11 @@ if [ -z "$EXEC" ]; then
 fi
 
 if [ `which numactl` ]; then
-	echo "numactl --localalloc $EXEC"
-	numactl --localalloc $EXEC
+	echo "numactl --localalloc $EXEC --png $OPTION"
+	numactl --localalloc $EXEC --png $OPTION
 else
-	echo "$EXEC"
-	$EXEC
+	echo "$EXEC --png $OPTION"
+	$EXEC --png $OPTION
 fi
 
 exit 0

@@ -33,15 +33,15 @@ MPL_CFG_DIR=/tmp/matplotlib
 # job execution by using SLURM
 echo $LOADEDMODULES | grep -e openmpi -e intelmpi -e mvapich
 if [ $? -eq 0 ]; then
-	echo "mpiexec -n $SLURM_NTASKS sh/wrapper/mpi_matplotlib.sh $CONFIG_NODE $CONFIG_SOCKET --wrapper-mpl_cfg_dir=$MPL_CFG_DIR $EXEC"
-	mpiexec -n $SLURM_NTASKS sh/wrapper/mpi_matplotlib.sh $CONFIG_NODE $CONFIG_SOCKET --wrapper-mpl_cfg_dir=$MPL_CFG_DIR $EXEC
+	echo "mpiexec -n $SLURM_NTASKS sh/wrapper/mpi_matplotlib.sh $CONFIG_NODE $CONFIG_SOCKET --wrapper-mpl_cfg_dir=$MPL_CFG_DIR $EXEC --png $OPTION"
+	mpiexec -n $SLURM_NTASKS sh/wrapper/mpi_matplotlib.sh $CONFIG_NODE $CONFIG_SOCKET --wrapper-mpl_cfg_dir=$MPL_CFG_DIR $EXEC --png $OPTION
 else
 	if [ `which numactl` ]; then
-		echo "numactl --localalloc $EXEC"
-		numactl --localalloc $EXEC
+		echo "numactl --localalloc $EXEC --png $OPTION"
+		numactl --localalloc $EXEC --png $OPTION
 	else
-		echo "$EXEC"
-		$EXEC
+		echo "$EXEC --png $OPTION"
+		$EXEC --png $OPTION
 	fi
 fi
 

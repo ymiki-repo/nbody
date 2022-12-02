@@ -41,26 +41,37 @@ constexpr type::int_idx NTHREADS = 512U;
 
 #if NUNROLL == 1
 #define PRAGMA_UNROLL _Pragma("unroll 1")
+#define PRAGMA_UNROLL_2 _Pragma("unroll 1")
 #elif NUNROLL == 2
 #define PRAGMA_UNROLL _Pragma("unroll 2")
+#define PRAGMA_UNROLL_2 _Pragma("unroll 1")
 #elif NUNROLL == 4
 #define PRAGMA_UNROLL _Pragma("unroll 4")
+#define PRAGMA_UNROLL_2 _Pragma("unroll 2")
 #elif NUNROLL == 8
 #define PRAGMA_UNROLL _Pragma("unroll 8")
+#define PRAGMA_UNROLL_2 _Pragma("unroll 4")
 #elif NUNROLL == 16
 #define PRAGMA_UNROLL _Pragma("unroll 16")
+#define PRAGMA_UNROLL_2 _Pragma("unroll 8")
 #elif NUNROLL == 32
 #define PRAGMA_UNROLL _Pragma("unroll 32")
+#define PRAGMA_UNROLL_2 _Pragma("unroll 16")
 #elif NUNROLL == 64
 #define PRAGMA_UNROLL _Pragma("unroll 64")
+#define PRAGMA_UNROLL_2 _Pragma("unroll 32")
 #elif NUNROLL == 128
 #define PRAGMA_UNROLL _Pragma("unroll 128")
+#define PRAGMA_UNROLL_2 _Pragma("unroll 64")
 #elif NUNROLL == 256
 #define PRAGMA_UNROLL _Pragma("unroll 256")
+#define PRAGMA_UNROLL_2 _Pragma("unroll 128")
 #elif NUNROLL == 512
 #define PRAGMA_UNROLL _Pragma("unroll 512")
+#define PRAGMA_UNROLL_2 _Pragma("unroll 256")
 #elif NUNROLL == 1024
 #define PRAGMA_UNROLL _Pragma("unroll 1024")
+#define PRAGMA_UNROLL_2 _Pragma("unroll 512")
 #endif
 
 ///
@@ -240,6 +251,8 @@ static inline void trim_acc(const type::int_idx Ni, type::acceleration *__restri
   );
 }
 
+constexpr type::int_idx NTHREADS_2 = NTHREADS / 2U;
+
 ///
 /// @brief guess initial time step by calculating snap and crackle on accelerator device
 ///
@@ -274,17 +287,17 @@ __global__ void guess_initial_dt_device(
   auto cy = AS_FP_M(0.0);
   auto cz = AS_FP_M(0.0);
 
-  //   __shared__ type::position jpos_shmem[NTHREADS];
-  //   __shared__ type::velocity jvel_shmem[NTHREADS];
-  //   __shared__ type::acceleration jacc_shmem[NTHREADS];
-  //   __shared__ type::jerk jjrk_shmem[NTHREADS];
+  //   __shared__ type::position jpos_shmem[NTHREADS_2];
+  //   __shared__ type::velocity jvel_shmem[NTHREADS_2];
+  //   __shared__ type::acceleration jacc_shmem[NTHREADS_2];
+  //   __shared__ type::jerk jjrk_shmem[NTHREADS_2];
   type::position *jpos_shmem = (type::position *)dynamic_shmem;
-  type::velocity *jvel_shmem = (type::velocity *)&jpos_shmem[NTHREADS];
-  type::acceleration *jacc_shmem = (type::acceleration *)&jvel_shmem[NTHREADS];
-  type::jerk *jjrk_shmem = (type::jerk *)&jacc_shmem[NTHREADS];
+  type::velocity *jvel_shmem = (type::velocity *)&jpos_shmem[NTHREADS_2];
+  type::acceleration *jacc_shmem = (type::acceleration *)&jvel_shmem[NTHREADS_2];
+  type::jerk *jjrk_shmem = (type::jerk *)&jacc_shmem[NTHREADS_2];
 
   // force evaluation
-  for (type::int_idx jh = 0U; jh < Nj; jh += NTHREADS) {
+  for (type::int_idx jh = 0U; jh < Nj; jh += NTHREADS_2) {
     // load j-particle
     __syncthreads();
     jpos_shmem[threadIdx.x] = jpos[jh + threadIdx.x];
@@ -293,8 +306,8 @@ __global__ void guess_initial_dt_device(
     jjrk_shmem[threadIdx.x] = jjrk[jh + threadIdx.x];
     __syncthreads();
 
-    PRAGMA_UNROLL
-    for (type::int_idx jj = 0U; jj < NTHREADS; jj++) {
+    PRAGMA_UNROLL_2
+    for (type::int_idx jj = 0U; jj < NTHREADS_2; jj++) {
       const auto p_j = jpos_shmem[jj];
       const auto v_j = jvel_shmem[jj];
       const auto a_j = jacc_shmem[jj];
@@ -380,8 +393,8 @@ static inline void guess_initial_dt(
     const type::int_idx Ni, const type::position *const ipos, const type::velocity *const ivel, const type::acceleration *const iacc, const type::jerk *const ijrk,
     const type::int_idx Nj, const type::position *const jpos, const type::velocity *const jvel, const type::acceleration *const jacc, const type::jerk *const jjrk,
     const type::flt_pos eps2, const type::fp_m eta, type::fp_m *__restrict dt) {
-  //   guess_initial_dt_device<<<BLOCKSIZE(Ni, NTHREADS), NTHREADS>>>(ipos, ivel, iacc, ijrk, Nj, jpos, jvel, jacc, jjrk, eps2, eta, dt);
-  guess_initial_dt_device<<<BLOCKSIZE(Ni, NTHREADS), NTHREADS, (sizeof(type::position) + sizeof(type::velocity) + sizeof(type::acceleration) + sizeof(type::jerk)) * NTHREADS>>>(ipos, ivel, iacc, ijrk, Nj, jpos, jvel, jacc, jjrk, eps2, eta, dt);
+  //   guess_initial_dt_device<<<BLOCKSIZE(Ni, NTHREADS_2), NTHREADS_2>>>(ipos, ivel, iacc, ijrk, Nj, jpos, jvel, jacc, jjrk, eps2, eta, dt);
+  guess_initial_dt_device<<<BLOCKSIZE(Ni, NTHREADS_2), NTHREADS_2, (sizeof(type::position) + sizeof(type::velocity) + sizeof(type::acceleration) + sizeof(type::jerk)) * NTHREADS_2>>>(ipos, ivel, iacc, ijrk, Nj, jpos, jvel, jacc, jjrk, eps2, eta, dt);
 }
 
 ///
@@ -828,9 +841,9 @@ static inline void configure_gpu() {
   cudaOccupancyMaxActiveBlocksPerMultiprocessor(&N_block, calc_acc_device, NTHREADS, (sizeof(type::position) + sizeof(type::velocity)) * NTHREADS);
   cudaFuncSetAttribute(calc_acc_device, cudaFuncAttributePreferredSharedMemoryCarveout, static_cast<int32_t>(std::ceil(static_cast<float>((sizeof(type::position) + sizeof(type::velocity)) * NTHREADS * N_block) / static_cast<float>(prop.sharedMemPerBlock))));
 #ifndef BENCHMARK_MODE
-  //   cudaOccupancyMaxActiveBlocksPerMultiprocessor(&N_block, guess_initial_dt_device, NTHREADS, 0);
-  cudaOccupancyMaxActiveBlocksPerMultiprocessor(&N_block, guess_initial_dt_device, NTHREADS, (sizeof(type::position) + sizeof(type::velocity) + sizeof(type::acceleration) + sizeof(type::jerk)) * NTHREADS);
-  cudaFuncSetAttribute(guess_initial_dt_device, cudaFuncAttributePreferredSharedMemoryCarveout, static_cast<int32_t>(std::ceil(static_cast<float>((sizeof(type::position) + sizeof(type::velocity) + sizeof(type::acceleration) + sizeof(type::jerk)) * NTHREADS * N_block) / static_cast<float>(prop.sharedMemPerBlock))));
+  //   cudaOccupancyMaxActiveBlocksPerMultiprocessor(&N_block, guess_initial_dt_device, NTHREADS_2, 0);
+  cudaOccupancyMaxActiveBlocksPerMultiprocessor(&N_block, guess_initial_dt_device, NTHREADS_2, (sizeof(type::position) + sizeof(type::velocity) + sizeof(type::acceleration) + sizeof(type::jerk)) * NTHREADS_2);
+  cudaFuncSetAttribute(guess_initial_dt_device, cudaFuncAttributePreferredSharedMemoryCarveout, static_cast<int32_t>(std::ceil(static_cast<float>((sizeof(type::position) + sizeof(type::velocity) + sizeof(type::acceleration) + sizeof(type::jerk)) * NTHREADS_2 * N_block) / static_cast<float>(prop.sharedMemPerBlock))));
 #endif  // BENCHMARK_MODE
 
   // below functions do not utilize the shared memory, so maximize the capacity of the L1 cache (0% for shared memory)
