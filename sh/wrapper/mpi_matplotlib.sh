@@ -49,14 +49,16 @@ if [ `which numactl` ]; then
     TEMPID=`expr $MPI_RANK % $PROCS_PER_NODE`
     SOCKET=`expr $TEMPID / $PROCS_PER_SOCKET`
     NUMAID=`expr $SOCKET \* $DOMAINS_PER_SOCKET`
-    NUMACTL="numactl --cpunodebind=$NUMAID --localalloc"
+    # NUMACTL="numactl --cpunodebind=$NUMAID --localalloc"
+    NUMACTL="numactl --localalloc"
 fi
 
 # configuration on NUMA node
 if [ `which numactl` ]; then
     TEMPID=`expr $MPI_RANK % $PROCS_PER_NODE`
     SOCKET=`expr $TEMPID / $PROCS_PER_SOCKET`
-    NUMACTL="numactl --cpunodebind=$SOCKET --localalloc"
+    # NUMACTL="numactl --cpunodebind=$SOCKET --localalloc"
+    NUMACTL="numactl --localalloc"
 fi
 
 # set tex cache directory for matplotlib

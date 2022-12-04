@@ -25,7 +25,7 @@ class config {
     boost::program_options::options_description opt("List of options");
     opt.add_options()(
         "file", boost::program_options::value<std::string>()->default_value("collapse"), "Name of the output files")(
-        "softening", boost::program_options::value<type::fp_l>()->default_value(AS_FLT_POS(1.5625e-2)), "Softening length (Plummer softening)")(
+        "softening", boost::program_options::value<type::flt_pos>()->default_value(AS_FLT_POS(1.5625e-2)), "Softening length (Plummer softening)")(
         "mass", boost::program_options::value<type::flt_pos>()->default_value(AS_FLT_POS(1.0)), "Total mass of the system")(
         "radius", boost::program_options::value<type::flt_pos>()->default_value(AS_FLT_POS(1.0)), "Radius of the initial sphere")(
         "virial", boost::program_options::value<type::flt_vel>()->default_value(AS_FLT_VEL(0.2)), "Virial ratio of the initial condition")(
