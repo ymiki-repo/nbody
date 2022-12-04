@@ -1,14 +1,14 @@
 module util_pyplot
 
 using PyPlot
-function config(; pkg="\\usepackage{physics,siunitx}")
+function config(; pkg="\\usepackage{amsmath}")
     rcParams = PyPlot.PyDict(PyPlot.matplotlib."rcParams")
     # embed fonts
     rcParams["ps.useafm"] = true
     rcParams["pdf.use14corefonts"] = true
     rcParams["text.usetex"] = true
     # use packages (physics.sty is missing on Wisteria/BDEC-01)
-    # rcParams["text.latex.preamble"] = pkg
+    rcParams["text.latex.preamble"] = pkg
     return nothing
 end
 
