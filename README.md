@@ -6,7 +6,7 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
 
 * 各種開発環境を用いたdirect $N$-body codeの実装比較・性能評価
   * C++実装：CPU向けのナイーブな実装（ベースライン実装）
-  * CUDA C++による実装
+  * [CUDA C++による実装](/cuda.md)
   * [OpenACCを用いたGPUオフローディング](/openacc.md)
   * [OpenMPのターゲット指示文を用いたGPUオフローディング](/openmp.md)
   * [C++17の標準言語規格を用いたGPUオフローディング](/stdpar.md)
