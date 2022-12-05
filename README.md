@@ -7,19 +7,23 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
 * 各種開発環境を用いたdirect $N$-body codeの実装比較・性能評価
   * C++実装：CPU向けのナイーブな実装（ベースライン実装）
   * CUDA C++による実装
-  * OpenACCを用いたGPUオフローディング
-  * OpenMPのターゲット指示文を用いたGPUオフローディング
-  * C++17の標準言語規格を用いたGPUオフローディング
+  * [OpenACCを用いたGPUオフローディング](/openacc.md)
+  * [OpenMPのターゲット指示文を用いたGPUオフローディング](/openmp.md)
+  * [C++17の標準言語規格を用いたGPUオフローディング](/stdpar.md)
 * Released under the MIT license, see LICENSE.txt
 * Copyright (c) 2022 Yohei MIKI
 
-## How to compile
+## コンパイル方法
 
-* Required packages:
+* <details><summary>コンパイルに必要なライブラリ・ツールキット:</summary>
+
   * CMake (>= 3.20)
+    * NVIDIA HPC SDKのサポートが v3.20 以降のため
   * Boost
   * HDF5
-  * <details><summary>How to load modules on Wisteria/BDEC-01 (Aquarius): NVIDIA HPC SDK</summary>
+  </details>
+
+  * <details><summary>Wisteria/BDEC-01 (Aquarius) 上でのモジュール設定方法（NVIDIA HPC SDK使用時）</summary>
 
     ```sh
     module purge       # for safety
@@ -30,7 +34,7 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
 
   </details>
 
-  * <details><summary>How to load modules on Wisteria/BDEC-01 (Aquarius): CUDA</summary>
+  * <details><summary>Wisteria/BDEC-01 (Aquarius) 上でのモジュール設定方法（CUDA使用時）</summary>
 
     ```sh
     module purge      # for safety
@@ -42,10 +46,14 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
 
   </details>
 
-* Optional packages:
-  * Julia (for visualization)
-  * VisIt (for visualization)
-* <details><summary>Configuration using GUI</summary>
+* <details><summary>可視化に用いるツールキット（オプション）:</summary>
+
+  * Julia
+  * VisIt
+
+  </details>
+
+* <details><summary>GUIツール（ccmake）を併用しての設定方法</summary>
 
   ```sh
   cmake -S. -Bbuild # source directory is the current directory, target directory is build/
@@ -55,7 +63,7 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
 
   </details>
 
-* <details><summary>Configuration using CUI</summary>
+* <details><summary>コマンドラインのみでの設定方法</summary>
 
   ```sh
   cmake -S. -Bbuild [option] # source directory is the current directory, target directory is build/
@@ -64,7 +72,7 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
 
   </details>
 
-* <details><summary>How to configure a fresh build tree, removing any existing cache file</summary>
+* <details><summary>キャッシュを無視して再設定する方法（CMake 3.24以降）</summary>
 
   ```sh
   cmake --fresh -S. -Bbuild [option] # introduced in CMake 3.24
@@ -72,25 +80,36 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
 
   </details>
 
-* List of compile options (for CMake):
-  * -DBENCHMARK_MODE=[ON OFF(default)] : On to perform benchmark
-    * 性能測定モードでは重力計算部分のみの実行時間を測定します（CPU-GPU間のデータ転送は含めません）
-    * Unified Memory使用版と不使用版両方がある場合には，Unified Memoryを使用しない実装のみを測定対象とします
-  * -DCALCULATE_POTENTIAL=[ON(default) OFF] : On to calculate gravitational potential
-  * -DFP_L=[32(default) 64 128] : Number of bits for floating-point numbers (low-precision)
-  * -DFP_M=[32 64(default) 128] : Number of bits for floating-point numbers (medium-precision)
-  * -DFP_H=[64(default) 128] : Number of bits for floating-point numbers (high-precision)
-  <!-- 実装中* -DHERMITE_SCHEME=[ON OFF(default)] : On to adopt 4th-order Hermite scheme instead of 2nd-order leapfrog scheme -->
-  * -DSIMD_BITS=[256 512(default) 1024] : SIMD width in units of bit
-  * -DTARGET_CPU=[depends on your C++ compiler; selecting by ccmake is encouraged] : target CPU architecture
+* <details><summary>CMake用のビルドオプション:</summary>
 
-* Compilation
-```sh
-ninja # if ninja-build is installed
-make  # if ninja-build is missing
-```
+  | 入力 | 概要 |
+  | ---- | ---- |
+  | -DBENCHMARK_MODE=[ON OFF(default)] | On to perform benchmark |
+  | -DCALCULATE_POTENTIAL=[ON(default) OFF] | On to calculate gravitational potential |
+  | -DFP_L=[32(default) 64 128] | Number of bits for floating-point numbers (low-precision) |
+  | -DFP_M=[32 64(default) 128] | Number of bits for floating-point numbers (medium-precision) |
+  | -DFP_H=[64(default) 128] | Number of bits for floating-point numbers (high-precision) |
+  | -DHERMITE_SCHEME=[ON OFF(default)] | On to adopt 4th-order Hermite scheme instead of 2nd-order leapfrog scheme |
+  | -DSIMD_BITS=[256 512(default) 1024] | SIMD width in units of bit |
+  | -DUSE_CUDA=[ON OFF(default)] | On to use CUDA C++ for NVIDIA GPU |
+  | -DTARGET_CPU=[depends on your C++ compiler; selecting by ccmake is encouraged] | target CPU architecture |
+  | -DGPU_EXECUTION=[ON(default) OFF] | On to compile code for GPU |
+  | -DOVERWRITE_DEFAULT=[ON OFF(default)] | On to overwrite default parameters for performance |
+  | -DNTHREADS=[32 64 128 256(default) 512 1024] | Number of threads per thread-block |
+  | -DUNROLL=[1 2 4 8 16 32 64 128(default) 256 512 1024] | Number of unroll counts |
 
-## How to run
+  </details>
+
+* <details><summary>コンパイル方法</summary>
+
+  ```sh
+  ninja # if ninja-build is installed (Wisteria/BDEC-01)
+  make  # if ninja-build is missing
+  ```
+
+  </details>
+
+## 実行方法
 
 * <details><summary>Wisteria/BDEC-01 (Fujitsu TCS)</summary>
 
@@ -115,8 +134,17 @@ make  # if ninja-build is missing
 
   </details>
 
-* output files are dat/FILENAME_snp*.h5 and dat/FILENAME_snp*.xdmf when BENCHMARK_NODE is OFF
-* log file is log/FILENAME_run.csv
+* <details><summary>出力されるファイル</summary>
+
+  * 計算が正常終了すると，log/ の中に FILENAME_run.csv が出力されます
+    * [計算結果出力モードで動作させた際の出力例](/gallery/validation/log/leapfrog4096_run.csv)
+    * [性能測定モードで動作させた際の出力例](/gallery/performance/log/leapfrog_run.csv)
+  * dat/ の中に FILENAME_snp*.h5 と FILENAME_snp*.xdmf が出力されます
+    * BENCHMARK_MODE が OFF の場合のみ
+    * スナップショットの出力例: gallery/validation/dat/
+      * 実際には連番で出力されますが，間引いた上でアップロードしています
+
+  </details>
 
 ## 可視化のための事前準備（Python および Julia を使用する場合）
 
@@ -182,7 +210,7 @@ make  # if ninja-build is missing
 
      </details>
 
-## How to check results
+## 計算結果の確認方法
 
  * <details><summary>Wisteria/BDEC-01上での実行方法</summary>
 
@@ -203,13 +231,52 @@ make  # if ninja-build is missing
 
    </details>
 
-* check the output figures in fig/
+* fig/ の中に生成されている画像ファイルを確認する
+  * エネルギー保存（fig/FILENAME_csv_ene.svg）
+    * <details><summary>Leapfrog法の場合</summary>
 
+      * <img src="gallery/validation/fig/leapfrog4096_csv_ene.svg" width="600px">
+      * First collapseのタイミングで誤差が最大
+      * 誤差が蓄積していかない
 
-## How to perform benchmark
+     </details>
 
-* set -DBENCHMARK_MODE=ON for CMake
-* set -DOVERWRITE_DEFAULT=ON if change NTHREADS and NUNROLL
+    * <details><summary>Hermite法の場合</summary>
+
+      * <img src="gallery/validation/fig/hermite4096_csv_ene.svg" width="600px">
+      * Leapfrog法よりも誤差が小さい
+      * 誤差が蓄積していく
+
+     </details>
+
+  * <details><summary>ビリアル比$-K/W$の時間進化（fig/FILENAME_virial.svg）</summary>
+
+    * <img src="gallery/validation/fig/leapfrog4096_virial.svg" width="600px">
+    * 山と谷の間隔が1程度
+    * 時間進化の結果，$-K / W \sim 0.5$付近で振動
+
+   </details>
+
+* <details><summary>VisIt を用いて描画する</summary>
+
+  1. VisIt を起動
+  2. ファイルを開く（Open から dat/FILENAME_snp*.xdmf database を選択し，OK）
+  3. 描画
+     * 粒子分布を見たいだけであれば，Plots の Add から Mesh > N-body を選択し，Draw する
+     * 速度場が見たければ，Plots の Add から Vector > velocity を選択し，Draw する
+     * ポテンシャル場を見たければ，Plots の Add から Pseudocolor > potential を選択し，Draw する
+       * Pseudocolor plot attributes の Color table を Default から viridis などの colorblindness friendly なものにしておくことを推奨する
+       * Invert にもチェックを入れておくと（この場合は）良い
+       * 全ての attributes の設定が完了したら，Apply を押して反映する
+
+ </details>
+
+## 性能測定方法
+
+* CMake でのビルド時に -DBENCHMARK_MODE=ON を指定
+  * 重力計算部分のみの実行時間を測定（CPU-GPU間のデータ転送は含めない）
+  * Unified Memory使用版はビルドしない（CPU-GPU間のデータ転送を測定対象から除外しているため，ビルドする意味がない）
+* （必要があれば）-DOVERWRITE_DEFAULT=ON を指定し，NTHREADS や NUNROLL といったパラメータの値を指定
 
 * <details><summary>Wisteria/BDEC-01 (Fujitsu TCS)</summary>
 
@@ -219,43 +286,59 @@ make  # if ninja-build is missing
 
   </details>
 
-## Example of performance measurements
+## 性能測定結果
 
-### 2nd-order Leap-frog scheme
+### Leapfrog法（時間2次精度）
 
-* include potential, FP_L = FP_M = 32, N = 4M
-  * assume 24 Flops per interaction
-* NVIDIA A100 (SXM, 40GB), CUDA 11.4 or NVIDIA HPC SDK 22.7 (Aquarius)
+* 性能測定時の設定
+  * 重力ポテンシャルも計算
+    * 相互作用あたりの浮動小数点演算数は24演算と仮定
+  * 浮動小数点演算数の精度については FP_L = FP_M = 32（全て単精度で計算）
+  * 粒子数$N$は$N = 4M = 4194304$で固定
+  * 重力計算部分のみの実行時間を測定（CPU-GPU間のデータ転送は含めない）
+    * Unified Memory使用版はビルドされない（CPU-GPU間のデータ転送を測定対象から除外しているため，ビルドする意味がない）
+* 性能測定に用いた環境
+  * Wisteria/BDEC-01 (Aquarius)
+    * NVIDIA A100 (SXM, 40GB)
+    * CUDA 11.4 or NVIDIA HPC SDK 22.7
 
-| method | variant | TFlop/s | configuration |
-| ---- | ---- | ---- | ---- |
-| CUDA | baseline | 8.42 | 128 threads per block |
-| CUDA | rsqrtf() | 13.2 | 1024 threads per block |
-| CUDA | rsqrtf(), shmem | 13.6 | 1024 threads per block, 8 unrolls |
-| OpenACC | | 7.75 | 128 threads per block |
-| OpenACC | -Mfprelaxed=rsqrt | 11.9 | 1024 threads per block |
-| OpenMP | distribute | 7.63 | 256 threads per block |
-| OpenMP | distribute, -Mfprelaxed=rsqrt | 11.6 | 256 threads per block |
-| OpenMP | loop | 7.75 | N/A |
-| OpenMP | loop, -Mfprelaxed=rsqrt | 11.7 | N/A |
-| stdpar | | 7.18 | N/A |
-| stdpar | -Mfprelaxed=rsqrt | 7.18 | N/A |
+| GPU化手法 | 最適化内容，コンパイルオプションなど | コンパイル時の追加パラメータ | 性能 [TFlop/s] | CUDA（最適化なし）との比率 | 最高性能のものとの比率 |
+| ---- | ---- | ---- | ---- | ---- | ---- |
+| CUDA | 最適化なし | NTHREADS = 128 | 8.42 | | 0.619 |
+| CUDA | rsqrtf() | NTHREADS = 1024 | 13.2 | 1.57 | 0.971 |
+| CUDA | rsqrtf(), シェアードメモリ | NTHREADS = 1024, NUNROLL = 8 | 13.6 | 1.62 | |
+| OpenACC | | NTHREADS = 128 | 7.75 | 0.920 | 0.570 |
+| OpenACC | -Mfprelaxed=rsqrt | NTHREADS = 1024 | 11.9 | 1.41 | 0.875 |
+| OpenMP | distribute | NTHREADS = 256 | 7.63 | 0.906 | 0.561 |
+| OpenMP | distribute, -Mfprelaxed=rsqrt | NTHREADS = 256 | 11.6 | 1.38 | 0.853 |
+| OpenMP | loop | | 7.75 | 0.920 | 0.570 |
+| OpenMP | loop, -Mfprelaxed=rsqrt | | 11.7 | 1.39 | 0.860 |
+| stdpar | | | 7.18 | 0.853 | 0.523 |
+| stdpar | -Mfprelaxed=rsqrt | | 7.18 | 0.853 | 0.523 |
 
-### 4th-order Hermite scheme
+### Hermite法（時間4次精度）
 
-* include potential, FP_L = FP_M = 64, N = 4M
-  * assume 46 Flops per interaction
-* NVIDIA A100 (SXM, 40GB), CUDA 11.4 or NVIDIA HPC SDK 22.7 (Aquarius)
+* 性能測定時の設定
+  * 重力ポテンシャルも計算
+    * 相互作用あたりの浮動小数点演算数は46演算と仮定
+  * 浮動小数点演算数の精度については FP_L = FP_M = 64（全て倍精度で計算）
+  * 粒子数$N$は$N = 4M = 4194304$で固定
+  * 重力計算部分のみの実行時間を測定（CPU-GPU間のデータ転送は含めない）
+    * Unified Memory使用版はビルドされない（CPU-GPU間のデータ転送を測定対象から除外しているため，ビルドする意味がない）
+* 性能測定に用いた環境
+  * Wisteria/BDEC-01 (Aquarius)
+    * NVIDIA A100 (SXM, 40GB)
+    * CUDA 11.4 or NVIDIA HPC SDK 22.7
 
-| method | variant | TFlop/s | configuration |
-| ---- | ---- | ---- | ---- |
-| CUDA | baseline | 4.93 | 128 threads per block |
-| CUDA | rsqrtf() + Newton--Raphson | 6.43 | 1024 threads per block |
-| CUDA | rsqrtf() + Newton--Raphson, shmem | 6.79 | 512 threads per block, 128 unrolls |
-| OpenACC | | 4.78 | 128 threads per block |
-| OpenMP | distribute | 4.60 | 128 threads per block |
-| OpenMP | loop | 4.78 | N/A |
-| stdpar | | 4.32 | N/A |
+| GPU化手法 | 最適化内容，コンパイルオプションなど | コンパイル時の追加パラメータ | 性能 [TFlop/s] | CUDA（最適化なし）との比率 | 最高性能のものとの比率 |
+| ---- | ---- | ---- | ---- | ---- | ---- |
+| CUDA | 最適化なし | NTHREADS = 128 | 4.93 | | 0.726 |
+| CUDA | rsqrtf() + Newton--Raphson | NTHREADS = 1024 | 6.43 | 1.30 | 0.947 |
+| CUDA | rsqrtf() + Newton--Raphson, シェアードメモリ | NTHREADS = 512, NUNROLL = 128 | 6.79 | 1.38 | |
+| OpenACC | | NTHREADS = 128 | 4.78 | 0.970 | 0.704 |
+| OpenMP | distribute | NTHREADS = 128 | 4.60 | 0.933 | 0.677 |
+| OpenMP | loop | | 4.78 | 0.970 | 0.704 |
+| stdpar | | | 4.32 | 0.876 | 0.636 |
 
 ## Profiling
 

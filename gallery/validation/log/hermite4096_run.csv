@@ -1,0 +1,2 @@
+exec,N,time[s],step,time_per_step[s],interactions_per_sec,Flop/s,FP_L,FP_M,eta,energy_error_final,energy_error_worst
+bin/cuda_memcpy_shmem,4096,6.4687770667999999e+01,39675,1.6304416047385002e-03,1.3313759354301574e+09,5.8580541158926926e+10,64,64,1.0000000000000001e-01,-5.0429209688812872e-06,-5.0429209688812872e-06

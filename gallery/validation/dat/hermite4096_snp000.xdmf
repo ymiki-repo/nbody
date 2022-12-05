@@ -1,0 +1,35 @@
+<?xml version="1.0" ?>
+<!DOCTYPE Xdmf SYSTEM "Xdmf.dtd" []>
+<Xdmf Version="3.0">
+  <Domain>
+    <Grid Name="N-body" GridType="Uniform">
+      <Time Value="0"/>
+      <Topology TopologyType="Polyvertex" NumberOfElements="4096"/>
+      <Geometry GeometryType="XYZ">
+        <DataItem Dimensions="4096 3" NumberType="Float" Precision="8" Format="HDF">
+          hermite4096_snp000.h5:/particle/pos
+        </DataItem>
+      </Geometry>
+      <Attribute Name="velocity" AttributeType="Vector" Center="Node">
+        <DataItem Dimensions="4096 3" NumberType="Float" Precision="8" Format="HDF">
+          hermite4096_snp000.h5:/particle/vel
+        </DataItem>
+      </Attribute>
+      <Attribute Name="acceleration" AttributeType="Vector" Center="Node">
+        <DataItem Dimensions="4096 3" NumberType="Float" Precision="8" Format="HDF">
+          hermite4096_snp000.h5:/particle/acc
+        </DataItem>
+      </Attribute>
+      <Attribute Name="potential" AttributeType="Scalar" Center="Node">
+        <DataItem Dimensions="4096" NumberType="Float" Precision="8" Format="HDF">
+          hermite4096_snp000.h5:/particle/pot
+        </DataItem>
+      </Attribute>
+      <Attribute Name="ID" AttributeType="Scalar" Center="Node">
+        <DataItem Dimensions="4096" NumberType="UInt" Precision="4" Format="HDF">
+          hermite4096_snp000.h5:/particle/ID
+        </DataItem>
+      </Attribute>
+    </Grid>
+  </Domain>
+</Xdmf>
