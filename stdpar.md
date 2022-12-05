@@ -26,7 +26,27 @@ C++17の標準言語規格を用いた$N$体計算コード（直接法）の実
      std::sort(std::execution::par, begin(), end());
      ```
 
-  * counting_iterator については別途自分で実装する，thrustなどから呼ぶという方針もあるが，ここでは作業量をなるべく減らす，可搬性（NVIDIA HPC SDK以外のコンパイラでもコンパイルできるようにしておく）ためにBoost C++を利用することとした
+  * counting_iterator の実装
+    * 取り得る実装方針
+      * 別途自分で実装する
+      * thrustなどのライブラリから呼ぶ
+    * ここではBoost C++から呼ぶこととした
+      * 作業量をなるべく減らすため，ライブラリ使用を選択
+      * 可搬性（NVIDIA HPC SDK以外のコンパイラでもコンパイルできるようにしておく）ためにthrustは対象外とした
+
+## 実装例
+
+| ソースコード | 実装概要 | 備考 |
+| ---- | ---- | ---- |
+| [cpp/stdpar/nbody_leapfrog2.cpp](/cpp/stdpar/nbody_leapfrog2.cpp) | Leapfrog法 | |
+| [cpp/stdpar/nbody_hermite4.cpp](/cpp/stdpar/nbody_hermite4.cpp) | Hermite法 | 一部関数のGPU化を無効化 |
+
+* 一部関数のGPU化について
+  * GPU上で動作させるとコードが正常に動作しなくなる関数があったため，暫定的にCPU上で動作させることにしている
+    * CUDA版ではGPU上で正常に動作するため，実装ミスやコンパイラのバグなどが原因と考えられる
+  * マクロ EXEC_SMALL_FUNC_ON_HOST を有効化（= 一部の OpenACC 指示文をコメントアウト）している
+  * 小さい関数なので，実行時間への影響も小さいと考えている
+  * 余分なCPU-GPU間のデータ転送が生じてしまっている
 
 ## NVIDIA HPC SDKに関する情報
 

@@ -316,6 +316,17 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
 | stdpar | | | 7.18 | 0.853 | 0.523 |
 | stdpar | -Mfprelaxed=rsqrt | | 7.18 | 0.853 | 0.523 |
 
+* <details><summary>演算性能の粒子数依存性</summary>
+
+  * <img src="gallery/performance/fig/leapfrog_scl_perf.png" width="600px">
+  * 粒子数が少ない領域では，演算性能は$N$に比例
+    * CUDAコアを使い切れていないことが原因
+    * ブロックあたりのスレッド数にも依存するが，全てのコアを動作させ続けるにはCUDAコア数（NVIDIA A100の場合には6912）の10倍程度の粒子数が欲しい
+  * 性能が飽和するのは，CUDAコア数の100倍程度の粒子数がある領域
+  * より詳細な議論に興味があれば [Miki et al. (2012)](https://doi.org/10.1016/j.procs.2012.04.011), [Miki et al. (2013)](https://doi.org/10.1016/j.cpc.2013.04.011) を参照してください
+
+ </details>
+
 ### Hermite法（時間4次精度）
 
 * 性能測定時の設定
@@ -339,6 +350,17 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
 | OpenMP | distribute | NTHREADS = 128 | 4.60 | 0.933 | 0.677 |
 | OpenMP | loop | | 4.78 | 0.970 | 0.704 |
 | stdpar | | | 4.32 | 0.876 | 0.636 |
+
+* <details><summary>演算性能の粒子数依存性</summary>
+
+  * <img src="gallery/performance/fig/hermite_scl_perf.png" width="600px">
+  * 粒子数が少ない領域では，演算性能は$N$に比例
+    * CUDAコアを使い切れていないことが原因
+    * ブロックあたりのスレッド数にも依存するが，全てのコアを動作させ続けるにはCUDAコア数（NVIDIA A100の場合には6912）の10倍程度の粒子数が欲しい
+  * 性能が飽和するのは，CUDAコア数の100倍程度の粒子数がある領域
+  * より詳細な議論に興味があれば [Miki et al. (2012)](https://doi.org/10.1016/j.procs.2012.04.011), [Miki et al. (2013)](https://doi.org/10.1016/j.cpc.2013.04.011) を参照してください
+
+ </details>
 
 ## Profiling
 
