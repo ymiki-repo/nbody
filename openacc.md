@@ -54,8 +54,8 @@ OpenACC を用いた$N$体計算コード（直接法）の実装概要の紹介
 | ソースコード | 実装概要 | 備考 |
 | ---- | ---- | ---- |
 | [cpp/openacc/0_managed/nbody_leapfrog2.cpp](/cpp/openacc/0_managed/nbody_leapfrog2.cpp) | Unified Memoryを用いた実装，Leapfrog法 | |
-| [cpp/openacc/0_managed/nbody_hermite4.cpp](/cpp/openacc/0_managed/nbody_hermite4.cpp) | Unified Memoryを用いた実装，Hermite法 | 一部関数のGPU化を無効化 |
 | [cpp/openacc/1_data/nbody_leapfrog2.cpp](/cpp/openacc/1_data/nbody_leapfrog2.cpp) | データ指示文を用いた実装，Leapfrog法 | |
+| [cpp/openacc/0_managed/nbody_hermite4.cpp](/cpp/openacc/0_managed/nbody_hermite4.cpp) | Unified Memoryを用いた実装，Hermite法 | 一部関数のGPU化を無効化 |
 | [cpp/openacc/1_data/nbody_hermite4.cpp](/cpp/openacc/1_data/nbody_hermite4.cpp) | データ指示文を用いた実装，Hermite法 | 一部関数のGPU化を無効化 |
 
 * 一部関数のGPU化について
