@@ -112,9 +112,11 @@ __global__ void calc_acc_device(
   // force evaluation
   for (type::int_idx jh = 0U; jh < Nj; jh += NTHREADS) {
     // load j-particle
+    const auto pj_tmp = jpos[jh + threadIdx.x];
+    const auto vj_tmp = jvel[jh + threadIdx.x];
     __syncthreads();
-    jpos_shmem[threadIdx.x] = jpos[jh + threadIdx.x];
-    jvel_shmem[threadIdx.x] = jvel[jh + threadIdx.x];
+    jpos_shmem[threadIdx.x] = pj_tmp;
+    jvel_shmem[threadIdx.x] = vj_tmp;
     __syncthreads();
 
     PRAGMA_UNROLL
@@ -907,6 +909,9 @@ static inline void configure_gpu() {
   cudaFuncSetAttribute(reset_particle_time_device, cudaFuncAttributePreferredSharedMemoryCarveout, 0);
 #endif  // BENCHMARK_MODE
   cudaFuncSetAttribute(clear_particles_device, cudaFuncAttributePreferredSharedMemoryCarveout, 0);
+
+  // change bank size of the shared memory: 4 byte (32 bit) -->> 8 byte (64 bit)
+  cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte);
 }
 
 auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *const *const argv) -> int32_t {
