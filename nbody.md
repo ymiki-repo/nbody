@@ -8,18 +8,18 @@ $N$体計算コード（直接法）の実装概要の紹介
 ## 基礎方程式
 
 $$
-\vec{a}_i = \sum_{j \neq i}^N \frac{G m_j \vec{r}_{ji}}{\left({r_{ji}^2 + \epsilon^2}\right)^{3 / 2}}
+\vec{a}_{i} = \sum_{j \neq i}^{N}{\frac{G m_{j} \vec{r}_{ji}}{\left({r_{ji}^{2} + \epsilon^{2}}\right)^{3 / 2}}}
 ,\quad\mathrm{where}\,\,
-\vec{r}_{ji} \equiv \vec{r}_j - \vec{r}_i
+\vec{r}_{ji} \equiv \vec{r}_{j} - \vec{r}_{i}
 .
 $$
 
-* $m_i$, $\vec{r}_i$, $\vec{a}_i$はそれぞれ$i$番目の粒子の質量，位置および加速度であり，全粒子数を$N$とする
+* $m_{i}$, $\vec{r}_{i}$, $\vec{a}_{i}$はそれぞれ$i$番目の粒子の質量，位置および加速度であり，全粒子数を$N$とする
   * 力を受ける粒子を$i$粒子，力を及ぼす粒子を$j$粒子と呼ぶ
 * $G$は重力定数であり，本サンプルコードの単位系では$G = 1$として取り扱っている
 * $\epsilon$は重力ソフトニングであり，ここではPlummerソフトニングを採用している
   * $N$体計算を実行する上で重力ソフトニングに対する理解は必須であるが，ここでは詳細には触れない
-* 直接法においては，重力計算の演算量は$\mathcal{O}\left(N^2\right)$である
+* 直接法においては，重力計算の演算量は$\mathcal{O}\left(N^{2}\right)$である
 
 ## 実装
 
@@ -29,9 +29,9 @@ $$
 * 固定・共有時間刻みの下ではSymplectic性が保証されるため，エネルギー保存も良好である
 
 $$
-\vec{v}_i^{n + 1 / 2} = \vec{v}_i^{n - 1 / 2} + \varDelta t \vec{a}_i^{n}
+\vec{v}_{i}^{n + 1 / 2} = \vec{v}_{i}^{n - 1 / 2} + \varDelta t \vec{a}_{i}^{n}
 ,\\
-\vec{r}_i^{n + 1} = \vec{r}_i^{n} + \varDelta t \vec{v}_i^{n + 1/2}
+\vec{r}_{i}^{n + 1} = \vec{r}_{i}^{n} + \varDelta t \vec{v}_{i}^{n + 1/2}
 .
 $$
 
@@ -39,9 +39,9 @@ $$
 * 速度を定義している時刻が$1/2$ステップ分だけずれているため，計算開始時およびスナップショット出力時にはそれぞれ開始公式および終了公式が必要となる
 
 $$
-\vec{v}_i^{1 / 2} = \vec{v}_i^{0} + \frac{\varDelta t}{2} \vec{a}_i^{0}
+\vec{v}_{i}^{1 / 2} = \vec{v}_{i}^{0} + \frac{\varDelta t}{2} \vec{a}_{i}^{0}
 ,\\
-\vec{v}_i^{n} = \vec{v}_i^{n + 1 / 2} - \frac{\varDelta t}{2} \vec{a}_i^{n}
+\vec{v}_{i}^{n} = \vec{v}_{i}^{n + 1 / 2} - \frac{\varDelta t}{2} \vec{a}_{i}^{n}
 .
 $$
 
@@ -59,7 +59,7 @@ $$
 * 時間積分には予測子・修正子法を用い，加速度だけではなく加速度の時間1階微分（jerk）も計算し，3次のHermite補間多項式を用いて時間4次精度を実現している
 
   $$
-  \frac{\mathrm{d}\vec{a}_i}{\mathrm{d}t} = \sum_{j \neq i}^N G m_j \left[\frac{\vec{v}_{ji}}{\left({r_{ji}^2 + \epsilon^2}\right)^{3 / 2}} - \frac{3 \left(\vec{r}_{ji} \cdot \vec{v}_{ji}\right) \vec{r}_{ji}}{\left({r_{ji}^2 + \epsilon^2}\right)^{5 / 2}}\right]
+  \frac{\mathrm{d}\vec{a}_{i}}{\mathrm{d}t} = \sum_{j \neq i}^{N}{G m_j \left[\frac{\vec{v}_{ji}}{\left({r_{ji}^2 + \epsilon^2}\right)^{3 / 2}} - \frac{3 \left(\vec{r}_{ji} \cdot \vec{v}_{ji}\right) \vec{r}_{ji}}{\left({r_{ji}^2 + \epsilon^2}\right)^{5 / 2}}\right]}
   .
   $$
   * ステップ毎に$i$粒子の数は桁で変化する
@@ -70,6 +70,17 @@ $$
   * <img src="gallery/conservation/fig/hermite_scl_err_ene_fp.png" width="600px">
   * 時間4次精度となっていることが確認できる
     * 全て単精度（Low: FP32, Mid: FP32）で実行した際には，$10^{-6}$程度が誤差の下限値となる
+
+### 実装例
+
+| ソースコード | 実装概要 |
+| ---- | ---- |
+| [cpp/base/0_base/nbody_leapfrog2.cpp](/cpp/base/0_base/nbody_leapfrog2.cpp) | Leapfrog法 |
+| [cpp/base/1_simd/nbody_leapfrog2.cpp](/cpp/base/1_simd/nbody_leapfrog2.cpp) | Leapfrog法, omp simd |
+| [cpp/base/0_base/nbody_hermite4.cpp](/cpp/base/0_base/nbody_hermite4.cpp) | Hermite法 |
+| [cpp/base/1_simd/nbody_hermite4.cpp](/cpp/base/1_simd/nbody_hermite4.cpp) | Hermite法, omp simd |
+
+* CPU向け実装については，十分な最適化を施したコードではない
 
 ## テスト問題（cold collapse）
 
@@ -83,7 +94,7 @@ $$
 * 自由落下時間$t_\mathrm{ff}$
   $$
   t_\mathrm{ff} = \sqrt{\frac{3 \pi}{32 G \rho}}
-  =\sqrt{\frac{\pi^2 R^3}{8 G M}}
+  =\sqrt{\frac{\pi^{2} R^{3}}{8 G M}}
   .
   $$
 

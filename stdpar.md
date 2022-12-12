@@ -22,9 +22,9 @@ C++17の標準言語規格を用いた$N$体計算コード（直接法）の実
   * 実装方法は他にもあるが，ある程度長いfor文については上記の方法が最短コース
     * 並列版アルゴリズムが提供されている関数については，std::execution::parを追加するだけで良い
 
-     ```c++
-     std::sort(std::execution::par, begin(), end());
-     ```
+       ```c++
+       std::sort(std::execution::par, begin(), end());
+       ```
 
   * counting_iterator の実装
     * 取り得る実装方針

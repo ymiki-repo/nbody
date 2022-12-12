@@ -97,6 +97,7 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
   | -DOVERWRITE_DEFAULT=[ON OFF(default)] | On to overwrite default parameters for performance |
   | -DNTHREADS=[32 64 128 256(default) 512 1024] | Number of threads per thread-block |
   | -DUNROLL=[1 2 4 8 16 32 64 128(default) 256 512 1024] | Number of unroll counts |
+  | -DRELAX_RSQRT_ACCURACY=[ON(default) OFF] | On to relax precision for reciprocal square root to accelerate simulations (only for NVIDIA HPC SDK) |
 
   </details>
 
@@ -303,7 +304,7 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
     * CUDA 11.4 or NVIDIA HPC SDK 22.7
 
 | GPU化手法 | 最適化内容，コンパイルオプションなど | コンパイル時の追加パラメータ | 性能 [TFlop/s] | CUDA（最適化なし）との比率 | 最高性能のものとの比率 |
-| ---- | ---- | ---- | ---- | ---- | ---- |
+| :----: | ---- | ---- | :----: | :----: | :----: |
 | CUDA | 最適化なし | NTHREADS = 128 | 8.42 | | 0.619 |
 | CUDA | rsqrtf() | NTHREADS = 1024 | 13.2 | 1.57 | 0.971 |
 | CUDA | rsqrtf(), シェアードメモリ | NTHREADS = 1024, NUNROLL = 8 | 13.6 | 1.62 | |
@@ -342,7 +343,7 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
     * CUDA 11.4 or NVIDIA HPC SDK 22.7
 
 | GPU化手法 | 最適化内容，コンパイルオプションなど | コンパイル時の追加パラメータ | 性能 [TFlop/s] | CUDA（最適化なし）との比率 | 最高性能のものとの比率 |
-| ---- | ---- | ---- | ---- | ---- | ---- |
+| :----: | ---- | ---- | :----: | :----: | :----: |
 | CUDA | 最適化なし | NTHREADS = 128 | 4.93 | | 0.726 |
 | CUDA | rsqrtf() + Newton--Raphson | NTHREADS = 1024 | 6.43 | 1.30 | 0.947 |
 | CUDA | rsqrtf() + Newton--Raphson, シェアードメモリ | NTHREADS = 512, NUNROLL = 128 | 6.79 | 1.38 | |
