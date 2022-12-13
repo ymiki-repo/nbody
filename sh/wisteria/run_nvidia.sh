@@ -21,6 +21,5 @@ OMP_OPT_ENV="env OMP_DISPLAY_ENV=verbose OMP_PLACES=cores OMP_PROC_BIND=close" #
 # job execution
 cd $PJM_O_WORKDIR
 $OMP_OPT_ENV numactl --localalloc ${EXEC} ${OPTION}
-# $OMP_OPT_ENV nsys profile --stats=true numactl --localalloc ${EXEC} ${OPTION}
 
 exit 0
