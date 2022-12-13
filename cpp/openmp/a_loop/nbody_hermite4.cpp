@@ -34,6 +34,9 @@ constexpr type::flt_acc newton = AS_FLT_ACC(1.0);  ///< gravitational constant
 constexpr type::int_idx NTHREADS = 256U;
 #endif  // NTHREADS
 
+// FIXME: remove the below macro (port as much as function to GPU)
+#define EXEC_SMALL_FUNC_ON_HOST
+
 ///
 /// @brief calculate gravitational acceleration
 ///
@@ -370,7 +373,9 @@ static inline void sort_particles(const type::int_idx num, type::int_idx *__rest
   std::sort(tag, tag + num, [src](auto ii, auto jj) { return ((*src).nxt[ii] < (*src).nxt[jj]); });
 
   // sort N-body particles
+#ifndef EXEC_SMALL_FUNC_ON_HOST
 #pragma omp target teams loop
+#endif  // EXEC_SMALL_FUNC_ON_HOST
   for (type::int_idx ii = 0U; ii < num; ii++) {
     const auto jj = tag[ii];
 
@@ -414,7 +419,9 @@ static inline auto set_time_step(const type::int_idx num, type::nbody &body, con
   }
 
   // unify the next time within the integrated block
+#ifndef EXEC_SMALL_FUNC_ON_HOST
 #pragma omp target teams loop
+#endif  // EXEC_SMALL_FUNC_ON_HOST
   for (type::int_idx ii = 0U; ii < Ni; ii++) {
     body.nxt[ii] = time_next;
   }
@@ -430,7 +437,9 @@ static inline auto set_time_step(const type::int_idx num, type::nbody &body, con
 /// @param[in] snapshot_interval current time
 ///
 static inline void reset_particle_time(const type::int_idx num, type::nbody &body, const type::fp_m snapshot_interval) {
+#ifndef EXEC_SMALL_FUNC_ON_HOST
 #pragma omp target teams loop
+#endif  // EXEC_SMALL_FUNC_ON_HOST
   for (type::int_idx ii = 0U; ii < num; ii++) {
     body.prs[ii] = AS_FP_M(0.0);
     body.nxt[ii] -= snapshot_interval;

@@ -371,8 +371,6 @@ static inline void sort_particles(const type::int_idx num, type::int_idx *__rest
   std::sort(
 #ifndef EXEC_SMALL_FUNC_ON_HOST
       std::execution::par,
-#else   // EXEC_SMALL_FUNC_ON_HOST
-      std::execution::seq,
 #endif  // EXEC_SMALL_FUNC_ON_HOST
       tag, tag + num, [src](auto ii, auto jj) { return ((*src).nxt[ii] < (*src).nxt[jj]); });
 
@@ -432,7 +430,7 @@ static inline auto set_time_step(const type::int_idx num, type::nbody &body, con
 #else   // EXEC_SMALL_FUNC_ON_HOST
       std::execution::seq,
 #endif  // EXEC_SMALL_FUNC_ON_HOST
-      boost::iterators::counting_iterator<type::int_idx>(0U), num, [=](const type::int_idx ii) {
+      boost::iterators::counting_iterator<type::int_idx>(0U), Ni, [=](const type::int_idx ii) {
         body.nxt[ii] = time_next;
       });
 
@@ -694,7 +692,13 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
                body1.pos, eps_inv
 #endif  // CALCULATE_POTENTIAL
       );
+      // for (type::int_idx ii = 0; ii < Ni; ii++) {
+      //   std::cout << body0.nxt[ii] << std::endl;
+      // }
       correct(Ni, body0.prs, body0.pos, body0.vel, body0.acc, body0.jrk, body0.nxt, body1.pos, body1.vel, body1.acc, body1.jrk, time_from_snapshot, eta);
+      // for (type::int_idx ii = 0; ii < Ni; ii++) {
+      //   std::cout << body0.nxt[ii] << std::endl;
+      // }
 
       // write snapshot
       if (present > previous) {
