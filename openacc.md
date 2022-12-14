@@ -79,7 +79,8 @@ OpenACC を用いた$N$体計算コード（直接法）の実装概要の紹介
 * 標準的な引数（リンク時）
 
   ```sh
-  -acc=gpu
+  -acc=gpu     # 指定し忘れると，GPU上では動作しない
+  -gpu=managed # Unified Memory 使用時にはこれもつける
   ```
 
 ### 実行時
