@@ -16,7 +16,7 @@ module load ompi
 # setup Python environment
 module use ${ROOT_DIR}/opt/modules
 module load anyenv
-module load miniconda3
+module load miniforge3
 
 # set environmental variables for Julia
 export JULIA_DEPOT_PATH=${ROOT_DIR}/.julia

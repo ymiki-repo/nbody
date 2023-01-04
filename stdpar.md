@@ -11,7 +11,7 @@ C++17の標準言語規格を用いた$N$体計算コード（直接法）の実
    #include <execution>
    ```
 
-* GPU上で計算させたいfor文をstd::for_each_nに置換
+* GPU上で計算させたいfor文を`std::for_each_n`に置換
 
    ```c++
    std::for_each_n(std::execution::par, boost::iterators::counting_iterator<int32_t>(0), num, [=](const int32_t ii){
@@ -20,7 +20,7 @@ C++17の標準言語規格を用いた$N$体計算コード（直接法）の実
    ```
 
   * 実装方法は他にもあるが，ある程度長いfor文については上記の方法が最短コース
-    * 並列版アルゴリズムが提供されている関数については，std::execution::parを追加するだけで良い
+    * 並列版アルゴリズムが提供されている関数については，`std::execution::par`を追加するだけで良い
 
        ```c++
        std::sort(std::execution::par, begin(), end());
@@ -44,7 +44,7 @@ C++17の標準言語規格を用いた$N$体計算コード（直接法）の実
 * 一部関数のGPU化について
   * GPU上で動作させるとコードが正常に動作しなくなる関数があったため，暫定的にCPU上で動作させることにしている
     * CUDA版ではGPU上で正常に動作するため，実装ミスやコンパイラのバグなどが原因と考えられる
-  * マクロ EXEC_SMALL_FUNC_ON_HOST を有効化（= 一部で std::execution::par ではなく std::execution::seq を指定して並列化を抑止）している
+  * マクロ `EXEC_SMALL_FUNC_ON_HOST` を有効化（= 一部で `std::execution::par` ではなく `std::execution::seq` を指定して並列化を抑止）している
   * 小さい関数なので，実行時間への影響も小さいと考えている
   * 余分なCPU-GPU間のデータ転送が生じてしまっている
 

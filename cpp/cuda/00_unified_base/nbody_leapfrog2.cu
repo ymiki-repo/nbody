@@ -357,7 +357,7 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
   configure_gpu();
 
 #ifdef BENCHMARK_MODE
-  const auto num_logbin = std::log2(num_max / num_min) / static_cast<double>(num_bin - 1);
+  const auto num_logbin = std::log2(num_max / num_min) / static_cast<double>((num_bin > 1) ? (num_bin - 1) : (num_bin));
   for (int32_t ii = 0; ii < num_bin; ii++) {
     const auto num = static_cast<type::int_idx>(std::nearbyint(num_min * std::exp2(static_cast<double>(ii) * num_logbin)));
 #endif  // BENCHMARK_MODE

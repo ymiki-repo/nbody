@@ -1,6 +1,6 @@
 # for NVIDIA HPC SDK
 if("${CMAKE_CXX_COMPILER_ID}" MATCHES "NVHPC")
-    option(RELAX_RSQRT_ACCURACY "On to relax precision for reciprocal square root to accelerate simulations; FP_L = 32 is necessary to use this option" ON)
+    option(RELAX_RSQRT_ACCURACY "On to relax precision for reciprocal square root to accelerate simulations; FP_L = 32 is necessary to use this option" OFF)
 
     if(NOT ${FP_L} EQUAL 32)
         set(RELAX_RSQRT_ACCURACY OFF)

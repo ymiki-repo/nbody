@@ -133,7 +133,7 @@ endif((NOT ${FP_L} EQUAL 32) AND(NOT ${FP_L} EQUAL 64) AND(NOT ${FP_L} EQUAL 128
 message(STATUS "FP_L = ${FP_L}")
 
 # set FP_M
-set(FP_M 64 CACHE STRING "Specification of floating-point numbers (medium-precision): 32, 64, or 128")
+set(FP_M 32 CACHE STRING "Specification of floating-point numbers (medium-precision): 32, 64, or 128")
 set_property(CACHE FP_M PROPERTY STRINGS 32 64 128)
 
 if((NOT ${FP_M} EQUAL 32) AND(NOT ${FP_M} EQUAL 64) AND(NOT ${FP_M} EQUAL 128))

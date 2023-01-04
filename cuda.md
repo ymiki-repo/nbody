@@ -4,8 +4,8 @@ CUDA C++を用いた$N$体計算コード（直接法）の実装概要の紹介
 
 ## 実装方法
 
-* GPU上で計算させたい関数を\_\_global\_\_関数へと書き換える
-  * 関数定義の先頭に \_\_global\_\_ をつける
+* GPU上で計算させたい関数を`__global__`関数へと書き換える
+  * 関数定義の先頭に `__global__` をつける
 
      ```c++
      __global__ void func_device(double *__restrict arg0, int32_t *__restrict arg1, ...)
@@ -21,19 +21,19 @@ CUDA C++を用いた$N$体計算コード（直接法）の実装概要の紹介
      const int32_t ii = blockIdx.x * blockDim.x + threadIdx.x;
      ```
 
-  * GPU上の関数から呼び出す関数については，関数定義の先頭に\_\_device\_\_をつける
+  * GPU上の関数から呼び出す関数については，関数定義の先頭に`__device__`をつける
 
      ```c++
      __device__ void sub_func_device(double *__restrict arg0, int32_t *__restrict arg1, ...)
      ```
 
-  * CPUからGPU上の\_\_global\_\_関数を起動する
+  * CPUからGPU上の`__global__`関数を起動する
 
      ```c++
      func_device<<<BLOCKSIZE(num, NTHREADS), NTHREADS>>>(arg0, arg1, ...);
      ```
 
-    * NTHREADS はスレッドブロックあたりのスレッド数であり，性能への影響が大きいパラメータである
+    * `NTHREADS` はスレッドブロックあたりのスレッド数であり，性能への影響が大きいパラメータである
   * スレッドブロックのブロック数についても指定する必要があるが，下記のマクロ関数を利用するのが便利である
 
      ```c++
@@ -54,7 +54,7 @@ CUDA C++を用いた$N$体計算コード（直接法）の実装概要の紹介
         cudaFree(ptr);
         ```
 
-  * cudaMemcpy を用いて明示的にCPU-GPU間のデータ転送を記述する場合
+  * `cudaMemcpy()` を用いて明示的にCPU-GPU間のデータ転送を記述する場合
     1. メモリを確保する
 
         ```c++
@@ -77,16 +77,16 @@ CUDA C++を用いた$N$体計算コード（直接法）の実装概要の紹介
        ```
 
 * （必要に応じて）GPU上での処理の完了待ちを行う
-  * cudaDeviceSynchronize() がいらない場合
-    * デフォルトストリームのみを用いて計算し，CPU-GPU間のデータ転送にcudaMemcpyのみを用いている場合
-  * cudaDeviceSynchronize() がいる場合
+  * `cudaDeviceSynchronize()` がいらない場合
+    * デフォルトストリームのみを用いて計算し，CPU-GPU間のデータ転送に`cudaMemcpy()`のみを用いている場合
+  * `cudaDeviceSynchronize()` がいる場合
     * 複数のCUDAストリームを使う，AsynchronousなCUDA関数を使用した場合など
     * Unified Memory を用いた際などに，CPUから読み出したデータが正しくなかった場合
     * 性能測定時など，GPU上の関数の実行状態を正確に把握しておく必要がある場合
 
-     ```c++
-     cudaDeviceSynchronize();
-     ```
+      ```c++
+      cudaDeviceSynchronize();
+      ```
 
 ## 実装例
 
@@ -108,32 +108,32 @@ CUDA C++を用いた$N$体計算コード（直接法）の実装概要の紹介
 ## 性能最適化
 
 * スレッドあたりのブロック数の調整
-  * NTHREADS の値によって性能が大きく変わる
+  * `NTHREADS` の値によって性能が大きく変わる
   * 32の倍数であり，かつ128以上の値に設定しておくと良い
   * 最適値は問題サイズ，使用するGPU，CUDAのバージョンなど様々な条件によって変化する
   * 本サンプルコードにおいては，$N = 4194304$において，Leapfrog法については全て単精度で実行した場合，Hermite法では全て倍精度で実行した場合に最高性能となる値を選択した
 
 * 高速な演算命令の活用
   * $N$体計算の場合には，逆数平方根の高速化が最重要
-  * NVIDIA GPU上では，rsqrtf() を使うことで高速化される
+  * NVIDIA GPU上では，`rsqrtf()` を使うことで高速化される
     * 単精度よりも少しだけ精度が悪いが，実用上問題ない
-    * 倍精度演算の場合には，rsqrtf() の結果をシードとしてNewton--Raphson法を用いる方が，1.0 / sqrt() とする（平方根を計算した後に除算が処理される）よりも高速である
+    * 倍精度演算の場合には，`rsqrtf()` の結果をシードとしてNewton--Raphson法を用いる方が，`1.0 / sqrt()` とする（平方根を計算した後に除算が処理される）よりも高速である
       * [Leapfrog法での実装例](/cpp/cuda/11_memcpy_rsqrt/nbody_leapfrog2.cu)
       * [Hermite法での実装例](/cpp/cuda/11_memcpy_rsqrt/nbody_hermite4.cu)
 
 * シェアードメモリの活用
   * オンチップの高速（小容量）なメモリであり，スレッドブロック内の全スレッドからアクセスできる
-    * シェアードメモリ上のデータの一貫性はユーザが保証しなければならないので，適宜 \_\_syncthreads() などを発行する
-  * static allocation（\_\_global\_\_関数などの中で確保する）の場合（[実装例](/cpp/cuda/12_memcpy_shmem/nbody_leapfrog2.cu)）
-    * こちらの方法の方が楽なので，基本的には static allocation がお勧め
-    * この方法で確保できるブロックあたりのシェアードメモリ容量の上限は48 KB
-      * static allocation できない際には，後述の dynamic allocation を使う
+    * シェアードメモリ上のデータの一貫性はユーザが保証しなければならないので，適宜 `__syncthreads()` などを発行する
+  * static allocation（`__global__`関数などの中で確保する）の場合（[実装例](/cpp/cuda/12_memcpy_shmem/nbody_leapfrog2.cu)）
 
      ```c++
      __shared__ double shmem[NTHREADS];
      ```
 
-  * dynamic allocation（\_\_global\_\_関数を起動する際に動的に確保する）の場合（[実装例](/cpp/cuda/12_memcpy_shmem/nbody_hermite2.cu)）
+    * こちらの方法の方が楽なので，基本的には static allocation がお勧め
+    * この方法で確保できるブロックあたりのシェアードメモリ容量の上限は48 KB
+      * static allocation できない際には，後述の dynamic allocation を使う
+  * dynamic allocation（`__global__`関数を起動する際に動的に確保する）の場合（[実装例](/cpp/cuda/12_memcpy_shmem/nbody_hermite2.cu)）
 
      ```c++
      extern __shared__ double shmem[]; // __global__関数の外側に書いておく

@@ -6,7 +6,7 @@
 # load modules
 module purge
 module load anyenv
-module load miniconda3
+module load miniforge3
 module load julia
 module load texlive
 

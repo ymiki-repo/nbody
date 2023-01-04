@@ -84,28 +84,28 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
 
   | 入力 | 概要 |
   | ---- | ---- |
-  | -DBENCHMARK_MODE=[ON OFF(default)] | On to perform benchmark |
-  | -DCALCULATE_POTENTIAL=[ON(default) OFF] | On to calculate gravitational potential |
-  | -DFP_L=[32(default) 64 128] | Number of bits for floating-point numbers (low-precision) |
-  | -DFP_M=[32 64(default) 128] | Number of bits for floating-point numbers (medium-precision) |
-  | -DFP_H=[64(default) 128] | Number of bits for floating-point numbers (high-precision) |
-  | -DHERMITE_SCHEME=[ON OFF(default)] | On to adopt 4th-order Hermite scheme instead of 2nd-order leapfrog scheme |
-  | -DSIMD_BITS=[256 512(default) 1024] | SIMD width in units of bit |
-  | -DUSE_CUDA=[ON OFF(default)] | On to use CUDA C++ for NVIDIA GPU |
-  | -DTARGET_CPU=[depends on your C++ compiler; selecting by ccmake is encouraged] | target CPU architecture |
-  | -DGPU_EXECUTION=[ON(default) OFF] | On to compile code for GPU |
-  | -DOVERWRITE_DEFAULT=[ON OFF(default)] | On to overwrite default parameters for performance |
-  | -DNTHREADS=[32 64 128 256(default) 512 1024] | Number of threads per thread-block |
-  | -DUNROLL=[1 2 4 8 16 32 64 128(default) 256 512 1024] | Number of unroll counts |
-  | -DRELAX_RSQRT_ACCURACY=[ON(default) OFF] | On to relax precision for reciprocal square root to accelerate simulations (only for NVIDIA HPC SDK) |
+  | `-DBENCHMARK_MODE=[ON OFF(default)]` | On to perform benchmark |
+  | `-DCALCULATE_POTENTIAL=[ON(default) OFF]` | On to calculate gravitational potential |
+  | `-DFP_L=[32(default) 64 128]` | Number of bits for floating-point numbers (low-precision) |
+  | `-DFP_M=[32(default) 64 128]` | Number of bits for floating-point numbers (medium-precision) |
+  | `-DFP_H=[64(default) 128]` | Number of bits for floating-point numbers (high-precision) |
+  | `-DHERMITE_SCHEME=[ON OFF(default)]` | On to adopt 4th-order Hermite scheme instead of 2nd-order leapfrog scheme |
+  | `-DSIMD_BITS=[256 512(default) 1024]` | SIMD width in units of bit |
+  | `-DUSE_CUDA=[ON OFF(default)]` | On to use CUDA C++ for NVIDIA GPU |
+  | `-DTARGET_CPU=[depends on your C++ compiler; selecting by ccmake is encouraged]` | target CPU architecture |
+  | `-DGPU_EXECUTION=[ON(default) OFF]` | On to compile code for GPU |
+  | `-DOVERWRITE_DEFAULT=[ON OFF(default)]` | On to overwrite default parameters for performance |
+  | `-DNTHREADS=[32 64 128 256(default) 512 1024]` | Number of threads per thread-block |
+  | `-DUNROLL=[1 2 4 8 16 32 64 128(default) 256 512 1024]` | Number of unroll counts |
+  | `-DRELAX_RSQRT_ACCURACY=[ON OFF(default)]` | On to relax precision for reciprocal square root to accelerate simulations (only for NVIDIA HPC SDK) |
 
   </details>
 
 * <details><summary>コンパイル方法</summary>
 
   ```sh
-  ninja # if ninja-build is installed (Wisteria/BDEC-01)
-  make  # if ninja-build is missing
+  ninja # if ninja-build is installed (e.g., Wisteria/BDEC-01)
+  make  # if ninja-build is missing (e.g., GPUクラスタ@CfCA)
   ```
 
   </details>
@@ -137,11 +137,11 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
 
 * <details><summary>出力されるファイル</summary>
 
-  * 計算が正常終了すると，log/ の中に FILENAME_run.csv が出力されます
+  * 計算が正常終了すると，log/ の中に `FILENAME_run.csv` が出力されます
     * [計算結果出力モードで動作させた際の出力例](/gallery/validation/log/leapfrog4096_run.csv)
     * [性能測定モードで動作させた際の出力例](/gallery/performance/log/leapfrog_run.csv)
-  * dat/ の中に FILENAME_snp*.h5 と FILENAME_snp*.xdmf が出力されます
-    * BENCHMARK_MODE が OFF の場合のみ
+  * dat/ の中に `FILENAME_snp*.h5` と `FILENAME_snp*.xdmf` が出力されます
+    * `BENCHMARK_MODE` が OFF の場合のみ
     * スナップショットの出力例: gallery/validation/dat/
       * 実際には連番で出力されますが，間引いた上でアップロードしています
 
@@ -164,14 +164,14 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
      git clone https://github.com/znz/anyenv-update.git $(anyenv root)/plugins/anyenv-update
      anyenv update # このコマンドによって，後で導入する pyenv なども update されるようになる
      anyenv install pyenv
-     pyenv install -l | grep miniconda3 # インストールできるバージョンを確認（miniforge3でも良い）
-     pyenv install miniconda3-4.7.12
+     pyenv install -l | grep miniforge3 # インストールできるバージョンを確認（miniconda3でも良い）
+     pyenv install miniforge3-22.9.0_2
      pyenv rehash
-     pyenv global miniconda3-4.7.12
+     pyenv global miniforge3-22.9.0_2
      pyenv versions
      cd /work/{YOUR_GROUP}/$USER/opt/modules
-     cd miniconda3 # miniforge3 をインストールした場合にはフォルダ名を miniforge3 に mv した上で cd してください
-     ln -s .generic 4.7.12 # これは v4.7.12 をインストールした場合です
+     cd miniforge3 # miniconda3 をインストールした場合にはフォルダ名を miniconda3 に mv した上で cd してください
+     ln -s .generic 22.9.0_2 # これは miniforge3-22.9.0_2 をインストールした場合です
      touch /work/{YOUR_GROUP}/$USER/.condarc
      mkdir /work/{YOUR_GROUP}/$USER/.conda
      mv ~/.condarc ~/.condarc.bak # もしあれば
@@ -200,8 +200,7 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
    * <details><summary>お手元の環境などでの構築方法</summary>
 
      ```sh
-     module load miniconda
-     module load anyenv miniconda3 # prepare Python environments
+     module load anyenv miniforge3 # prepare Python environments
      module load openmpi           # prepare MPI to be used
      module load texlive           # prepare LaTeX environments
      module load julia             # prepare Julia environments
@@ -233,7 +232,7 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
    </details>
 
 * fig/ の中に生成されている画像ファイルを確認する
-  * エネルギー保存（fig/FILENAME_csv_ene.svg）
+  * エネルギー保存（`fig/FILENAME_csv_ene.svg`）
     * <details><summary>Leapfrog法の場合</summary>
 
       * <img src="gallery/validation/fig/leapfrog4096_csv_ene.svg" width="600px">
@@ -250,7 +249,7 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
 
      </details>
 
-  * <details><summary>ビリアル比$-K/W$の時間進化（fig/FILENAME_virial.svg）</summary>
+  * <details><summary>ビリアル比 $-K/W$ の時間進化（`fig/FILENAME_virial.svg`）</summary>
 
     * <img src="gallery/validation/fig/leapfrog4096_virial.svg" width="600px">
     * 山と谷の間隔が1程度
@@ -261,7 +260,7 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
 * <details><summary>VisIt を用いて描画する</summary>
 
   1. VisIt を起動
-  2. ファイルを開く（Open から dat/FILENAME_snp*.xdmf database を選択し，OK）
+  2. ファイルを開く（Open から `dat/FILENAME_snp*.xdmf database` を選択し，OK）
   3. 描画
      * 粒子分布を見たいだけであれば，Plots の Add から Mesh > N-body を選択し，Draw する
      * 速度場が見たければ，Plots の Add から Vector > velocity を選択し，Draw する
@@ -274,10 +273,10 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
 
 ## 性能測定方法
 
-* CMake でのビルド時に -DBENCHMARK_MODE=ON を指定
+* CMake でのビルド時に `-DBENCHMARK_MODE=ON` を指定
   * 重力計算部分のみの実行時間を測定（CPU-GPU間のデータ転送は含めない）
   * Unified Memory使用版はビルドしない（CPU-GPU間のデータ転送を測定対象から除外しているため，ビルドする意味がない）
-* （必要があれば）-DOVERWRITE_DEFAULT=ON を指定し，NTHREADS や NUNROLL といったパラメータの値を指定
+* （必要があれば）`-DOVERWRITE_DEFAULT=ON` を指定し，`NTHREADS` や `NUNROLL` といったパラメータの値を指定
 
 * <details><summary>Wisteria/BDEC-01 (Fujitsu TCS)</summary>
 
@@ -294,7 +293,7 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
 * 性能測定時の設定
   * 重力ポテンシャルも計算
     * 相互作用あたりの浮動小数点演算数は24演算と仮定
-  * 浮動小数点演算数の精度については FP_L = FP_M = 32（全て単精度で計算）
+  * 浮動小数点演算数の精度については `FP_L = FP_M = 32`（全て単精度で計算）
   * 粒子数$N$は$N = 2^{22} = 4194304$で固定
   * 重力計算部分のみの実行時間を測定（CPU-GPU間のデータ転送は含めない）
     * Unified Memory使用版はビルドされない（CPU-GPU間のデータ転送を測定対象から除外しているため，ビルドする意味がない）
@@ -333,7 +332,7 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
 * 性能測定時の設定
   * 重力ポテンシャルも計算
     * 相互作用あたりの浮動小数点演算数は46演算と仮定
-  * 浮動小数点演算数の精度については FP_L = FP_M = 64（全て倍精度で計算）
+  * 浮動小数点演算数の精度については `FP_L = FP_M = 64`（全て倍精度で計算）
   * 粒子数$N$は$N = 2^{22} = 4194304$で固定
   * 重力計算部分のみの実行時間を測定（CPU-GPU間のデータ転送は含めない）
     * Unified Memory使用版はビルドされない（CPU-GPU間のデータ転送を測定対象から除外しているため，ビルドする意味がない）
@@ -401,4 +400,4 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
    4. 特定の関数の情報を取得する
       1. タイムライン上で注目している関数にマウスオーバーすると，基礎的な情報（スレッド数や使用したレジスタ数など）が表示される
       2. タイムライン上で注目している関数をダブルクリックすると，画面右下に基礎的な情報（スレッド数や使用したレジスタ数など）が表示される
-        * 注目する関数の指定は，画面下半分で Events View の中に列挙されている関数をクリックすることでもできる
+         * 注目する関数の指定は，画面下半分で Events View の中に列挙されている関数をクリックすることでもできる

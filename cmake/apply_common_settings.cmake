@@ -31,11 +31,6 @@ set(Boost_USE_MULTITHREADED ON)
 set(Boost_USE_STATIC_RUNTIME OFF)
 find_package(Boost REQUIRED COMPONENTS program_options filesystem timer system)
 
-# for Intel oneAPI
-if("${CMAKE_CXX_COMPILER_ID}" MATCHES "IntelLLVM" OR "${CMAKE_CXX_COMPILER_ID}" MATCHES "Intel")
-    find_package(TBB REQUIRED)
-endif("${CMAKE_CXX_COMPILER_ID}" MATCHES "IntelLLVM" OR "${CMAKE_CXX_COMPILER_ID}" MATCHES "Intel")
-
 # find HDF5
 enable_language(C)
 find_package(HDF5 REQUIRED COMPONENTS C)
@@ -48,10 +43,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     # OpenMP
     # $<$<BOOL:${OpenMP_FOUND}>:${OpenMP_CXX_FLAGS}>
     $<$<AND:$<BOOL:${OpenMP_FOUND}>,$<NOT:$<CXX_COMPILER_ID:NVHPC>>>:${OpenMP_CXX_FLAGS}>
-
-    # link tbb for C++ parallel algorithms
-    $<$<NOT:$<OR:$<CXX_COMPILER_ID:NVHPC>,$<CXX_COMPILER_ID:IntelLLVM>,$<CXX_COMPILER_ID:Intel>>>:-ltbb>
-    $<$<OR:$<CXX_COMPILER_ID:IntelLLVM>,$<CXX_COMPILER_ID:Intel>>:TBB::tbb>
 
     # memory sanitizer
     $<$<BOOL:${USE_SANITIZER_ADDRESS}>:-fsanitize=address>
