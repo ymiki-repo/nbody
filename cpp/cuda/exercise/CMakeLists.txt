@@ -1,5 +1,5 @@
-# compile direct N-body code (GPU implementation in CUDA C++: use of Unified Memory and rsqrtf())
-project(cuda_unified_rsqrt CXX CUDA)
+# compile direct N-body code (GPU implementation using CUDA C++)
+project(cuda_excercise CXX CUDA)
 message(STATUS "Generate ${PROJECT_NAME} ...")
 
 # define the executable
@@ -19,12 +19,9 @@ find_package(CUDA REQUIRED)
 include(${USER_MODULE_PATH}/apply_common_settings.cmake)
 target_compile_definitions(${PROJECT_NAME} PUBLIC
     $<$<BOOL:${OVERWRITE_DEFAULT}>:NTHREADS=\(${NTHREADS}U\)>
+    $<$<BOOL:${OVERWRITE_DEFAULT}>:NUNROLL=\(${NUNROLL}\)>
 )
 
-# add GPU configuration for NVIDIA GPU
-# target_compile_options(${PROJECT_NAME} PRIVATE
-# --compiler-bindir=${CMAKE_CXX_COMPILER}
-# )
 if(${NVIDIA_GPU_HARD} EQUAL ${NVIDIA_GPU_SOFT})
     set_property(TARGET ${PROJECT_NAME} PROPERTY CUDA_ARCHITECTURES ${NVIDIA_GPU_HARD})
 else(${NVIDIA_GPU_HARD} EQUAL ${NVIDIA_GPU_SOFT})

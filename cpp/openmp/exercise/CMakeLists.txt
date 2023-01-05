@@ -1,5 +1,5 @@
-# compile direct N-body code (GPU implementation using OpenACC: use of data directive)
-project(acc_data CXX)
+# compile direct N-body code (GPU implementation using OpenMP target directives)
+project(omp_excercise CXX)
 message(STATUS "Generate ${PROJECT_NAME} ...")
 
 # define the executable
@@ -21,10 +21,11 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC
 
 # add GPU configuration
 target_compile_options(${PROJECT_NAME} PRIVATE
-    $<$<AND:$<BOOL:${GPU_EXECUTION}>,$<CXX_COMPILER_ID:NVHPC>>:-acc=gpu -gpu=cc${NVIDIA_GPU_HARD} -Minfo=accel,opt>
-    $<$<AND:$<BOOL:${OpenMP_FOUND}>,$<CXX_COMPILER_ID:NVHPC>>:${OpenMP_CXX_FLAGS}=multicore>
+    $<$<AND:$<BOOL:${OpenMP_FOUND}>,$<BOOL:${GPU_EXECUTION}>,$<CXX_COMPILER_ID:NVHPC>>:-mp=gpu -gpu=cc${NVIDIA_GPU_HARD},managed -Minfo=accel,opt,mp>
+    $<$<AND:$<BOOL:${OpenMP_FOUND}>,$<NOT:$<BOOL:${GPU_EXECUTION}>>,$<CXX_COMPILER_ID:NVHPC>>:-mp=multicore>
 )
 target_link_libraries(${PROJECT_NAME} PRIVATE
-    $<$<AND:$<BOOL:${GPU_EXECUTION}>,$<CXX_COMPILER_ID:NVHPC>>:-acc=gpu>
-    $<$<AND:$<BOOL:${OpenMP_FOUND}>,$<CXX_COMPILER_ID:NVHPC>>:${OpenMP_CXX_FLAGS}=multicore>
+    $<$<AND:$<BOOL:${OpenMP_FOUND}>,$<BOOL:${GPU_EXECUTION}>,$<CXX_COMPILER_ID:NVHPC>>:-mp=gpu>
+    $<$<AND:$<BOOL:${GPU_EXECUTION}>,$<CXX_COMPILER_ID:NVHPC>>:-gpu=managed>
+    $<$<AND:$<BOOL:${OpenMP_FOUND}>,$<NOT:$<BOOL:${GPU_EXECUTION}>>,$<CXX_COMPILER_ID:NVHPC>>:-mp=multicore>
 )

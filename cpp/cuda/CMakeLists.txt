@@ -7,3 +7,7 @@ endif(NOT BENCHMARK_MODE)
 add_subdirectory(10_memcpy_base)
 add_subdirectory(11_memcpy_rsqrt)
 add_subdirectory(12_memcpy_shmem)
+
+if(EXERCISE_MODE)
+    add_subdirectory(exercise)
+endif(EXERCISE_MODE)

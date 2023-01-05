@@ -1,4 +1,4 @@
-# compile direct N-body code (base implementation in CUDA C++: use of Unified Memory, no kernel optimization)
+# compile direct N-body code (GPU implementation in CUDA C++: use of Unified Memory, no kernel optimization)
 project(cuda_unified_base CXX CUDA)
 message(STATUS "Generate ${PROJECT_NAME} ...")
 

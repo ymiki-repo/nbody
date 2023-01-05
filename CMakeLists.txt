@@ -14,11 +14,13 @@ option(CALCULATE_POTENTIAL "On to calculate gravitational potential" ON)
 option(HERMITE_SCHEME "On to adopt 4th-order Hermite scheme" OFF)
 option(GPU_EXECUTION "On to compile code for GPU" ON)
 option(USE_CUDA "On to use CUDA C++ for NVIDIA GPU" OFF)
+option(EXERCISE_MODE "On to use exercise mode" OFF)
 message(STATUS "BENCHMARK_MODE is ${BENCHMARK_MODE}")
 message(STATUS "CALCULATE_POTENTIAL is ${CALCULATE_POTENTIAL}")
 message(STATUS "HERMITE_SCHEME is ${HERMITE_SCHEME}")
 message(STATUS "GPU_EXECUTION is ${GPU_EXECUTION}")
 message(STATUS "USE_CUDA is ${USE_CUDA}")
+message(STATUS "EXERCISE_MODE is ${EXERCISE_MODE}")
 
 # enforce Release as build type in benchmark mode
 if(BENCHMARK_MODE)

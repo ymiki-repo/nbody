@@ -1,4 +1,4 @@
-# compile direct N-body code (base implementation in CUDA C++: use of cudaMemcpy, no kernel optimization)
+# compile direct N-body code (base implementation in CUDA C++: use of cudaMemcpy and no kernel optimization)
 project(cuda_memcpy_base CXX CUDA)
 message(STATUS "Generate ${PROJECT_NAME} ...")
 

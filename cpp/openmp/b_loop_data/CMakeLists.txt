@@ -1,4 +1,4 @@
-# compile direct N-body code (GPU implementation using OpenMP target directives: loop directives, use of Unified Memory)
+# compile direct N-body code (GPU implementation using OpenMP target directives: loop directives, data directive)
 project(omp_loop_data CXX)
 message(STATUS "Generate ${PROJECT_NAME} ...")
 

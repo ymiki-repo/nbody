@@ -98,6 +98,7 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
   | `-DNTHREADS=[32 64 128 256(default) 512 1024]` | Number of threads per thread-block |
   | `-DUNROLL=[1 2 4 8 16 32 64 128(default) 256 512 1024]` | Number of unroll counts |
   | `-DRELAX_RSQRT_ACCURACY=[ON OFF(default)]` | On to relax precision for reciprocal square root to accelerate simulations (only for NVIDIA HPC SDK) |
+  | `-DEXERCISE_MODE=[ON OFF(default)]` | On to use exercise mode |
 
   </details>
 
