@@ -74,7 +74,7 @@ function set_Panel(; nx::Integer=1, ny::Integer=1, share_xaxis::Bool=true, share
     pt = MyPlotType(num=5, type=["o", "s", "^", "D", "x"])
     ls = MyPlotType(num=5, type=["solid", (0, (1, 1)), (0, (5, 5)), (0, (5, 1, 1, 1)), (0, (5, 1, 1, 1, 1, 1, 1, 1))])
     cl = MyPlotType(num=10,
-        # taken from Model Color Pallete for Color Universal Design ver.4 (pages 7 and 2)
+        # taken from Model Color Palette for Color Universal Design ver.4 (pages 7 and 2)
         # conversion using https://hogehoge.tk/tool/number.html
         type=[
             "#000000",# black
@@ -90,7 +90,7 @@ function set_Panel(; nx::Integer=1, ny::Integer=1, share_xaxis::Bool=true, share
         ]
     )
     mn = MyPlotType(num=4,
-        # taken from Model Color Pallete for Color Universal Design ver.4 (page 2)
+        # taken from Model Color Palette for Color Universal Design ver.4 (page 2)
         # conversion using https://hogehoge.tk/tool/number.html
         type=
         [
