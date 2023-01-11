@@ -166,13 +166,14 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
      anyenv update # このコマンドによって，後で導入する pyenv なども update されるようになる
      anyenv install pyenv
      pyenv install -l | grep miniforge3 # インストールできるバージョンを確認（miniconda3でも良い）
-     pyenv install miniforge3-22.9.0_2
+     pyenv install miniforge3-22.9.0-2
      pyenv rehash
-     pyenv global miniforge3-22.9.0_2
+     pyenv global miniforge3-22.9.0-2
      pyenv versions
      cd /work/{YOUR_GROUP}/$USER/opt/modules
      cd miniforge3 # miniconda3 をインストールした場合にはフォルダ名を miniconda3 に mv した上で cd してください
-     ln -s .generic 22.9.0_2 # これは miniforge3-22.9.0_2 をインストールした場合です
+     ln -s .generic 22.9.0-2 # これは miniforge3-22.9.0-2 をインストールした場合です
+     module load miniforge3
      touch /work/{YOUR_GROUP}/$USER/.condarc
      mkdir /work/{YOUR_GROUP}/$USER/.conda
      mv ~/.condarc ~/.condarc.bak # もしあれば
