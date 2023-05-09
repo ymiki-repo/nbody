@@ -10,15 +10,15 @@
 
 #include <unistd.h>
 
-#include <boost/filesystem.hpp>                ///< boost::filesystem
-#include <boost/math/constants/constants.hpp>  ///< boost::math::constants::two_pi
-#include <boost/program_options.hpp>           ///< boost::program_options
-#include <cmath>                               ///< std::fma
-#include <cstdint>                             ///< int32_t
-#include <cub/device/device_radix_sort.cuh>
-#include <iostream>
-#include <memory>
-#include <string>
+#include <boost/filesystem.hpp>                // boost::filesystem
+#include <boost/math/constants/constants.hpp>  // boost::math::constants::two_pi
+#include <boost/program_options.hpp>           // boost::program_options
+#include <cmath>                               // std::fma
+#include <cstdint>                             // int32_t
+#include <cub/device/device_radix_sort.cuh>    // cub::DeviceRadixSort::SortPairs
+#include <iostream>                            // std::cout
+#include <string>                              // std::string
+#include <type_traits>                         // std::remove_const_t
 
 #include "common/cfg.hpp"
 #include "common/conservatives.hpp"
@@ -29,7 +29,7 @@
 #include "util/macro.hpp"
 #include "util/timer.hpp"
 
-constexpr type::flt_acc newton = AS_FLT_ACC(1.0);  ///< gravitational constant
+constexpr type::flt_acc newton = AS_FLT_ACC(1.0);  // gravitational constant
 
 #ifndef NTHREADS
 constexpr type::int_idx NTHREADS = 1024U;
@@ -60,11 +60,11 @@ __global__ void calc_acc_device(
   // initialization
   const auto pi = ipos[ii];
   const auto vi = ivel[ii];
-  type::acceleration ai = {AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0)};
-  type::jerk ji = {AS_FLT_JRK(0.0), AS_FLT_JRK(0.0), AS_FLT_JRK(0.0)};
+  std::remove_reference_t<decltype(*iacc)> ai = {AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0)};
+  std::remove_reference_t<decltype(*ijrk)> ji = {AS_FLT_JRK(0.0), AS_FLT_JRK(0.0), AS_FLT_JRK(0.0)};
 
   // force evaluation
-  for (type::int_idx jj = 0U; jj < Nj; jj++) {
+  for (std::remove_const_t<decltype(Nj)> jj = 0U; jj < Nj; jj++) {
     // load j-particle
     const auto pj = jpos[jj];
     const auto vj = jvel[jj];
@@ -97,7 +97,7 @@ __global__ void calc_acc_device(
     const auto dvx = vj.x - vi.x;
     const auto dvy = vj.y - vi.y;
     const auto dvz = vj.z - vi.z;
-    const auto bet = AS_FP_M(-3.0) * (dx * dvx + dy * dvy + dz * dvz) * CAST2JRK(r2_inv);  ///< 3 * beta
+    const auto bet = AS_FLT_JRK(-3.0) * (dx * dvx + dy * dvy + dz * dvz) * CAST2JRK(r2_inv);  // 3 * beta
     // jerk accumulation
     ji.x += alp * (dvx + bet * dx);
     ji.y += alp * (dvy + bet * dy);
@@ -231,7 +231,7 @@ __global__ void guess_initial_dt_device(
   auto cz = AS_FP_M(0.0);
 
   // force evaluation
-  for (type::int_idx jj = 0U; jj < Nj; jj++) {
+  for (std::remove_const_t<decltype(Nj)> jj = 0U; jj < Nj; jj++) {
     // load j-particle
     const auto p_j = jpos[jj];
     const auto v_j = jvel[jj];
@@ -348,7 +348,7 @@ __global__ void predict_device(
   const auto j0 = jrk0[jj];
 
   // predict particle position and velocity
-  type::velocity v1;
+  auto v1 = std::remove_reference_t<decltype(*vel1)>{};
   v1.x = v0.x + dt * (a0.x + dt_2 * j0.x);
   v1.y = v0.y + dt * (a0.y + dt_2 * j0.y);
   v1.z = v0.z + dt * (a0.z + dt_2 * j0.z);
@@ -612,18 +612,18 @@ static inline void reset_particle_time(const type::int_idx num, type::nbody &bod
 __global__ void clear_particles_device(type::position *__restrict pos, type::velocity *__restrict vel, type::acceleration *__restrict acc, type::jerk *__restrict jrk, type::fp_m *__restrict prs, type::fp_m *__restrict nxt, type::int_idx *__restrict idx) {
   const type::int_idx ii = blockIdx.x * blockDim.x + threadIdx.x;
 
-  constexpr type::position p_zero = {AS_FLT_POS(0.0), AS_FLT_POS(0.0), AS_FLT_POS(0.0), AS_FLT_POS(0.0)};
-  constexpr type::velocity v_zero = {AS_FLT_VEL(0.0), AS_FLT_VEL(0.0), AS_FLT_VEL(0.0)};
-  constexpr type::acceleration a_zero = {AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0)};
-  constexpr type::jerk j_zero = {AS_FLT_JRK(0.0), AS_FLT_JRK(0.0), AS_FLT_JRK(0.0)};
+  constexpr std::remove_reference_t<decltype(*pos)> p_zero = {AS_FLT_POS(0.0), AS_FLT_POS(0.0), AS_FLT_POS(0.0), AS_FLT_POS(0.0)};
+  constexpr std::remove_reference_t<decltype(*vel)> v_zero = {AS_FLT_VEL(0.0), AS_FLT_VEL(0.0), AS_FLT_VEL(0.0)};
+  constexpr std::remove_reference_t<decltype(*acc)> a_zero = {AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0)};
+  constexpr std::remove_reference_t<decltype(*jrk)> j_zero = {AS_FLT_JRK(0.0), AS_FLT_JRK(0.0), AS_FLT_JRK(0.0)};
 
   pos[ii] = p_zero;
   vel[ii] = v_zero;
   acc[ii] = a_zero;
   jrk[ii] = j_zero;
   prs[ii] = AS_FP_M(0.0);
-  nxt[ii] = std::numeric_limits<type::fp_m>::max();
-  idx[ii] = std::numeric_limits<type::int_idx>::max();
+  nxt[ii] = std::numeric_limits<std::remove_reference_t<decltype(*nxt)>>::max();
+  idx[ii] = std::numeric_limits<std::remove_reference_t<decltype(*idx)>>::max();
 }
 
 ///
@@ -665,52 +665,52 @@ static inline void allocate_Nbody_particles(
     type::int_idx **tag0_dev, type::int_idx **tag1_dev, void **temp_storage, size_t &temp_storage_size, const type::int_idx num) {
   auto size = static_cast<size_t>(num);
   if ((num % NTHREADS) != 0U) {
-    size += static_cast<size_t>(NTHREADS - (num % NTHREADS));
+    size += static_cast<decltype(size)>(NTHREADS - (num % NTHREADS));
   }
-  cudaMallocHost((void **)pos_hst, size * sizeof(type::position));
-  cudaMallocHost((void **)vel_hst, size * sizeof(type::velocity));
-  cudaMallocHost((void **)acc_hst, size * sizeof(type::acceleration));
-  cudaMallocHost((void **)jrk_hst, size * sizeof(type::jerk));
-  cudaMallocHost((void **)nxt_hst, (size / NTHREADS) * sizeof(type::fp_m));
-  cudaMallocHost((void **)idx_hst, size * sizeof(type::int_idx));
-  cudaMalloc((void **)pos0_dev, size * sizeof(type::position));
-  cudaMalloc((void **)vel0_dev, size * sizeof(type::velocity));
-  cudaMalloc((void **)acc0_dev, size * sizeof(type::acceleration));
-  cudaMalloc((void **)jrk0_dev, size * sizeof(type::jerk));
-  cudaMalloc((void **)prs0_dev, size * sizeof(type::fp_m));
-  cudaMalloc((void **)nxt0_dev, size * sizeof(type::fp_m));
-  cudaMalloc((void **)idx0_dev, size * sizeof(type::int_idx));
-  cudaMalloc((void **)pos1_dev, size * sizeof(type::position));
-  cudaMalloc((void **)vel1_dev, size * sizeof(type::velocity));
-  cudaMalloc((void **)acc1_dev, size * sizeof(type::acceleration));
-  cudaMalloc((void **)jrk1_dev, size * sizeof(type::jerk));
-  cudaMalloc((void **)prs1_dev, size * sizeof(type::fp_m));
-  cudaMalloc((void **)nxt1_dev, size * sizeof(type::fp_m));
-  cudaMalloc((void **)idx1_dev, size * sizeof(type::int_idx));
+  cudaMallocHost((void **)pos_hst, size * sizeof(std::remove_reference_t<decltype(**pos_hst)>));
+  cudaMallocHost((void **)vel_hst, size * sizeof(std::remove_reference_t<decltype(**vel_hst)>));
+  cudaMallocHost((void **)acc_hst, size * sizeof(std::remove_reference_t<decltype(**acc_hst)>));
+  cudaMallocHost((void **)jrk_hst, size * sizeof(std::remove_reference_t<decltype(**jrk_hst)>));
+  cudaMallocHost((void **)nxt_hst, (size / NTHREADS) * sizeof(std::remove_reference_t<decltype(**nxt_hst)>));
+  cudaMallocHost((void **)idx_hst, size * sizeof(std::remove_reference_t<decltype(**idx_hst)>));
+  cudaMalloc((void **)pos0_dev, size * sizeof(std::remove_reference_t<decltype(**pos0_dev)>));
+  cudaMalloc((void **)vel0_dev, size * sizeof(std::remove_reference_t<decltype(**vel0_dev)>));
+  cudaMalloc((void **)acc0_dev, size * sizeof(std::remove_reference_t<decltype(**acc0_dev)>));
+  cudaMalloc((void **)jrk0_dev, size * sizeof(std::remove_reference_t<decltype(**jrk0_dev)>));
+  cudaMalloc((void **)prs0_dev, size * sizeof(std::remove_reference_t<decltype(**prs0_dev)>));
+  cudaMalloc((void **)nxt0_dev, size * sizeof(std::remove_reference_t<decltype(**nxt0_dev)>));
+  cudaMalloc((void **)idx0_dev, size * sizeof(std::remove_reference_t<decltype(**idx0_dev)>));
+  cudaMalloc((void **)pos1_dev, size * sizeof(std::remove_reference_t<decltype(**pos1_dev)>));
+  cudaMalloc((void **)vel1_dev, size * sizeof(std::remove_reference_t<decltype(**vel1_dev)>));
+  cudaMalloc((void **)acc1_dev, size * sizeof(std::remove_reference_t<decltype(**acc1_dev)>));
+  cudaMalloc((void **)jrk1_dev, size * sizeof(std::remove_reference_t<decltype(**jrk1_dev)>));
+  cudaMalloc((void **)prs1_dev, size * sizeof(std::remove_reference_t<decltype(**prs1_dev)>));
+  cudaMalloc((void **)nxt1_dev, size * sizeof(std::remove_reference_t<decltype(**nxt1_dev)>));
+  cudaMalloc((void **)idx1_dev, size * sizeof(std::remove_reference_t<decltype(**idx1_dev)>));
 
   // initialize arrays (for safety of massless particles and first touch)
-  constexpr type::position p_zero = {AS_FLT_POS(0.0), AS_FLT_POS(0.0), AS_FLT_POS(0.0), AS_FLT_POS(0.0)};
-  constexpr type::velocity v_zero = {AS_FLT_VEL(0.0), AS_FLT_VEL(0.0), AS_FLT_VEL(0.0)};
-  constexpr type::acceleration a_zero = {AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0)};
-  constexpr type::jerk j_zero = {AS_FLT_JRK(0.0), AS_FLT_JRK(0.0), AS_FLT_JRK(0.0)};
+  constexpr std::remove_reference_t<decltype(**pos_hst)> p_zero = {AS_FLT_POS(0.0), AS_FLT_POS(0.0), AS_FLT_POS(0.0), AS_FLT_POS(0.0)};
+  constexpr std::remove_reference_t<decltype(**vel_hst)> v_zero = {AS_FLT_VEL(0.0), AS_FLT_VEL(0.0), AS_FLT_VEL(0.0)};
+  constexpr std::remove_reference_t<decltype(**acc_hst)> a_zero = {AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0)};
+  constexpr std::remove_reference_t<decltype(**jrk_hst)> j_zero = {AS_FLT_JRK(0.0), AS_FLT_JRK(0.0), AS_FLT_JRK(0.0)};
 #pragma omp parallel for
-  for (size_t ii = 0U; ii < size; ii++) {
+  for (std::remove_const_t<decltype(size)> ii = 0U; ii < size; ii++) {
     (*pos_hst)[ii] = p_zero;
     (*vel_hst)[ii] = v_zero;
     (*acc_hst)[ii] = a_zero;
     (*jrk_hst)[ii] = j_zero;
-    (*idx_hst)[ii] = std::numeric_limits<type::int_idx>::max();
+    (*idx_hst)[ii] = std::numeric_limits<std::remove_reference_t<decltype(**idx_hst)>>::max();
   }
 #pragma omp parallel for
-  for (size_t ii = 0U; ii < (size / NTHREADS); ii++) {
-    (*nxt_hst)[ii] = std::numeric_limits<type::fp_m>::max();
+  for (std::remove_const_t<decltype(size)> ii = 0U; ii < (size / NTHREADS); ii++) {
+    (*nxt_hst)[ii] = std::numeric_limits<std::remove_reference_t<decltype(**nxt_hst)>>::max();
   }
   clear_particles_device<<<BLOCKSIZE(size, NTHREADS), NTHREADS>>>(*pos0_dev, *vel0_dev, *acc0_dev, *jrk0_dev, *prs0_dev, *nxt0_dev, *idx0_dev);
   clear_particles_device<<<BLOCKSIZE(size, NTHREADS), NTHREADS>>>(*pos1_dev, *vel1_dev, *acc1_dev, *jrk1_dev, *prs1_dev, *nxt1_dev, *idx1_dev);
 
   // memory allocation for sorting
-  cudaMalloc((void **)tag0_dev, size * sizeof(type::int_idx));
-  cudaMalloc((void **)tag1_dev, size * sizeof(type::int_idx));
+  cudaMalloc((void **)tag0_dev, size * sizeof(std::remove_reference_t<decltype(**tag0_dev)>));
+  cudaMalloc((void **)tag1_dev, size * sizeof(std::remove_reference_t<decltype(**tag1_dev)>));
   temp_storage_size = 0U;
   *temp_storage = NULL;
   reset_tag_device<<<BLOCKSIZE(size, NTHREADS), NTHREADS>>>(*tag0_dev);
@@ -861,24 +861,38 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
 
 #ifdef BENCHMARK_MODE
   const auto num_logbin = std::log2(num_max / num_min) / static_cast<double>((num_bin > 1) ? (num_bin - 1) : (num_bin));
-  for (int32_t ii = 0; ii < num_bin; ii++) {
+  for (std::remove_const_t<decltype(num_bin)> ii = 0; ii < num_bin; ii++) {
     const auto num = static_cast<type::int_idx>(std::nearbyint(num_min * std::exp2(static_cast<double>(ii) * num_logbin)));
 #endif  // BENCHMARK_MODE
 
     // memory allocation
-    alignas(MEMORY_ALIGNMENT) type::position *pos, *pos0_dev, *pos1_dev;
-    alignas(MEMORY_ALIGNMENT) type::velocity *vel, *vel0_dev, *vel1_dev;
-    alignas(MEMORY_ALIGNMENT) type::acceleration *acc, *acc0_dev, *acc1_dev;
-    alignas(MEMORY_ALIGNMENT) type::jerk *jerk, *jerk0_dev, *jerk1_dev;
-    alignas(MEMORY_ALIGNMENT) type::fp_m *pres0_dev, *pres1_dev;
-    alignas(MEMORY_ALIGNMENT) type::fp_m *next, *next0_dev, *next1_dev;
-    alignas(MEMORY_ALIGNMENT) type::int_idx *id, *id0_dev, *id1_dev;
-    alignas(MEMORY_ALIGNMENT) type::int_idx *tag0_dev, *tag1_dev;
-    alignas(MEMORY_ALIGNMENT) void *temp_storage;
+    type::position *pos0_dev = nullptr;
+    type::position *pos1_dev = nullptr;
+    type::velocity *vel0_dev = nullptr;
+    type::velocity *vel1_dev = nullptr;
+    type::acceleration *acc0_dev = nullptr;
+    type::acceleration *acc1_dev = nullptr;
+    type::jerk *jerk0_dev = nullptr;
+    type::jerk *jerk1_dev = nullptr;
+    type::fp_m *pres0_dev = nullptr;
+    type::fp_m *pres1_dev = nullptr;
+    type::fp_m *next0_dev = nullptr;
+    type::fp_m *next1_dev = nullptr;
+    type::int_idx *id0_dev = nullptr;
+    type::int_idx *id1_dev = nullptr;
+    type::int_idx *tag0_dev = nullptr;
+    type::int_idx *tag1_dev = nullptr;
+    type::position *pos = nullptr;
+    type::velocity *vel = nullptr;
+    type::acceleration *acc = nullptr;
+    type::jerk *jerk = nullptr;
+    type::fp_m *next = nullptr;
+    type::int_idx *id = nullptr;
+    void *temp_storage = nullptr;
     size_t temp_storage_size = 0U;
-    auto body = type::nbody();
-    auto body0_dev = type::nbody();
-    auto body1_dev = type::nbody();
+    auto body = type::nbody{};
+    auto body0_dev = type::nbody{};
+    auto body1_dev = type::nbody{};
     allocate_Nbody_particles(
         body, &pos, &vel, &acc, &jerk, &next, &id,
         body0_dev, &pos0_dev, &vel0_dev, &acc0_dev, &jerk0_dev, &pres0_dev, &next0_dev, &id0_dev,
@@ -888,12 +902,12 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
     // generate initial-condition
     init::set_uniform_sphere(num, body.pos, body.vel, M_tot, rad, virial, CAST2VEL(newton));
 #pragma omp parallel for
-    for (type::int_idx ii = 0U; ii < num; ii++) {
+    for (std::remove_const_t<decltype(num)> ii = 0U; ii < num; ii++) {
       body.idx[ii] = ii;
     }
-    cudaMemcpy(body0_dev.pos, body.pos, num * sizeof(type::position), cudaMemcpyHostToDevice);
-    cudaMemcpy(body0_dev.vel, body.vel, num * sizeof(type::velocity), cudaMemcpyHostToDevice);
-    cudaMemcpy(body0_dev.idx, body.idx, num * sizeof(type::int_idx), cudaMemcpyHostToDevice);
+    cudaMemcpy(body0_dev.pos, body.pos, num * sizeof(std::remove_reference_t<decltype(*(body0_dev.pos))>), cudaMemcpyHostToDevice);
+    cudaMemcpy(body0_dev.vel, body.vel, num * sizeof(std::remove_reference_t<decltype(*(body0_dev.vel))>), cudaMemcpyHostToDevice);
+    cudaMemcpy(body0_dev.idx, body.idx, num * sizeof(std::remove_reference_t<decltype(*(body0_dev.idx))>), cudaMemcpyHostToDevice);
 
 #ifndef BENCHMARK_MODE
     // write the first snapshot
@@ -907,8 +921,8 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
 #endif  // CALCULATE_POTENTIAL
     );
     auto error = conservatives();
-    cudaMemcpy(body.acc, body0_dev.acc, num * sizeof(type::acceleration), cudaMemcpyDeviceToHost);
-    cudaMemcpy(body.jrk, body0_dev.jrk, num * sizeof(type::jerk), cudaMemcpyDeviceToHost);
+    cudaMemcpy(body.acc, body0_dev.acc, num * sizeof(std::remove_reference_t<decltype(*(body.acc))>), cudaMemcpyDeviceToHost);
+    cudaMemcpy(body.jrk, body0_dev.jrk, num * sizeof(std::remove_reference_t<decltype(*(body.jrk))>), cudaMemcpyDeviceToHost);
     io::write_snapshot(num, body.pos, body.vel, body.acc, body.jrk, body.idx, file.c_str(), present, time, error);
     guess_initial_dt(num, body0_dev.pos, body0_dev.vel, body0_dev.acc, body0_dev.jrk, num, body0_dev.pos, body0_dev.vel, body0_dev.acc, body0_dev.jrk, eps2, eta, body0_dev.nxt);
 
@@ -940,11 +954,11 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
         previous = present;
         time_from_snapshot = AS_FP_M(0.0);
         time += snapshot_interval;
-        cudaMemcpy(body.pos, body0_dev.pos, num * sizeof(type::position), cudaMemcpyDeviceToHost);
-        cudaMemcpy(body.vel, body0_dev.vel, num * sizeof(type::velocity), cudaMemcpyDeviceToHost);
-        cudaMemcpy(body.acc, body0_dev.acc, num * sizeof(type::acceleration), cudaMemcpyDeviceToHost);
-        cudaMemcpy(body.jrk, body0_dev.jrk, num * sizeof(type::jerk), cudaMemcpyDeviceToHost);
-        cudaMemcpy(body.idx, body0_dev.idx, num * sizeof(type::int_idx), cudaMemcpyDeviceToHost);
+        cudaMemcpy(body.pos, body0_dev.pos, num * sizeof(std::remove_reference_t<decltype(*(body.pos))>), cudaMemcpyDeviceToHost);
+        cudaMemcpy(body.vel, body0_dev.vel, num * sizeof(std::remove_reference_t<decltype(*(body.vel))>), cudaMemcpyDeviceToHost);
+        cudaMemcpy(body.acc, body0_dev.acc, num * sizeof(std::remove_reference_t<decltype(*(body.acc))>), cudaMemcpyDeviceToHost);
+        cudaMemcpy(body.jrk, body0_dev.jrk, num * sizeof(std::remove_reference_t<decltype(*(body.jrk))>), cudaMemcpyDeviceToHost);
+        cudaMemcpy(body.idx, body0_dev.idx, num * sizeof(std::remove_reference_t<decltype(*(body.idx))>), cudaMemcpyDeviceToHost);
         io::write_snapshot(num, body.pos, body.vel, body.acc, body.jrk, body.idx, file.c_str(), present, time, error);
         reset_particle_time(num, body0_dev, snapshot_interval);
       }
@@ -952,10 +966,10 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
 #else   // BENCHMARK_MODE
   // launch benchmark
   auto timer = util::timer();
-  cudaDeviceSynchronize();  // complete the calculation on GPU before reading results from CPU
+  cudaDeviceSynchronize();  // complete the computation on GPU before reading results from CPU
   timer.start();
   calc_acc(num, body0_dev.pos, body0_dev.vel, body0_dev.acc, body0_dev.jrk, num, body0_dev.pos, body0_dev.vel, eps2);
-  cudaDeviceSynchronize();  // complete the calculation on GPU before reading results from CPU
+  cudaDeviceSynchronize();  // complete the computation on GPU before reading results from CPU
   timer.stop();
   auto elapsed = timer.get_elapsed_wall();
   int32_t iter = 1;
@@ -964,17 +978,17 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
   const auto minimum_elapsed = cfg.get_minimum_elapsed_time();
   while (elapsed < minimum_elapsed) {
     // predict the iteration counts
-    constexpr double booster = 1.25;  ///< additional safety-parameter to reduce rejection rate
-    iter = static_cast<int32_t>(std::exp2(std::ceil(std::log2(static_cast<double>(iter) * booster * minimum_elapsed / elapsed))));
+    constexpr double booster = 1.25;  // additional safety-parameter to reduce rejection rate
+    iter = static_cast<decltype(iter)>(std::exp2(std::ceil(std::log2(static_cast<double>(iter) * booster * minimum_elapsed / elapsed))));
 
     // re-execute the benchmark
     timer.clear();
-    cudaDeviceSynchronize();  // complete the calculation on GPU before reading results from CPU
+    cudaDeviceSynchronize();  // complete the computation on GPU before reading results from CPU
     timer.start();
-    for (int32_t loop = 0; loop < iter; loop++) {
+    for (decltype(iter) loop = 0; loop < iter; loop++) {
       calc_acc(num, body0_dev.pos, body0_dev.vel, body0_dev.acc, body0_dev.jrk, num, body0_dev.pos, body0_dev.vel, eps2);
     }
-    cudaDeviceSynchronize();  // complete the calculation on GPU before reading results from CPU
+    cudaDeviceSynchronize();  // complete the computation on GPU before reading results from CPU
     timer.stop();
     elapsed = timer.get_elapsed_wall();
   }

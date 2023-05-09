@@ -10,14 +10,14 @@
 
 #include <unistd.h>
 
-#include <boost/filesystem.hpp>                ///< boost::filesystem
-#include <boost/math/constants/constants.hpp>  ///< boost::math::constants::two_pi
-#include <boost/program_options.hpp>           ///< boost::program_options
-#include <cmath>                               ///< std::fma
-#include <cstdint>                             ///< int32_t
-#include <iostream>
-#include <memory>
-#include <string>
+#include <boost/filesystem.hpp>                // boost::filesystem
+#include <boost/math/constants/constants.hpp>  // boost::math::constants::two_pi
+#include <boost/program_options.hpp>           // boost::program_options
+#include <cmath>                               // std::fma
+#include <cstdint>                             // int32_t
+#include <iostream>                            // std::cout
+#include <string>                              // std::string
+#include <type_traits>                         // std::remove_const_t
 
 #include "common/cfg.hpp"
 #include "common/conservatives.hpp"
@@ -28,7 +28,7 @@
 #include "util/macro.hpp"
 #include "util/timer.hpp"
 
-constexpr type::flt_acc newton = AS_FLT_ACC(1.0);  ///< gravitational constant
+constexpr type::flt_acc newton = AS_FLT_ACC(1.0);  // gravitational constant
 
 #ifndef NTHREADS
 constexpr type::int_idx NTHREADS = 1024U;
@@ -54,10 +54,10 @@ __global__ void calc_acc_device(const type::position *const ipos, type::accelera
 
   // initialization
   const auto pi = ipos[ii];
-  type::acceleration ai = {AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0)};
+  std::remove_reference_t<decltype(*iacc)> ai = {AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0)};
 
   // force evaluation
-  for (type::int_idx jj = 0U; jj < Nj; jj++) {
+  for (std::remove_const_t<decltype(Nj)> jj = 0U; jj < Nj; jj++) {
     // load j-particle
     const auto pj = jpos[jj];
 
@@ -272,19 +272,19 @@ static inline void kick_backward_half(const type::int_idx num, const type::veloc
 static inline void allocate_Nbody_particles(type::position **pos, type::velocity **vel, type::velocity **vel_tmp, type::acceleration **acc, const type::int_idx num) {
   auto size = static_cast<size_t>(num);
   if ((num % NTHREADS) != 0U) {
-    size += static_cast<size_t>(NTHREADS - (num % NTHREADS));
+    size += static_cast<decltype(size)>(NTHREADS - (num % NTHREADS));
   }
-  cudaMallocManaged((void **)pos, size * sizeof(type::position));
-  cudaMallocManaged((void **)vel, size * sizeof(type::velocity));
-  cudaMallocManaged((void **)vel_tmp, size * sizeof(type::velocity));
-  cudaMallocManaged((void **)acc, size * sizeof(type::acceleration));
+  cudaMallocManaged((void **)pos, size * sizeof(std::remove_reference_t<decltype(**pos)>));
+  cudaMallocManaged((void **)vel, size * sizeof(std::remove_reference_t<decltype(**vel)>));
+  cudaMallocManaged((void **)vel_tmp, size * sizeof(std::remove_reference_t<decltype(**vel_tmp)>));
+  cudaMallocManaged((void **)acc, size * sizeof(std::remove_reference_t<decltype(**acc)>));
 
   // zero-clear arrays (for safety of massless particles)
-  constexpr type::position p_zero = {AS_FLT_POS(0.0), AS_FLT_POS(0.0), AS_FLT_POS(0.0), AS_FLT_POS(0.0)};
-  constexpr type::velocity v_zero = {AS_FLT_VEL(0.0), AS_FLT_VEL(0.0), AS_FLT_VEL(0.0)};
-  constexpr type::acceleration a_zero = {AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0)};
+  constexpr std::remove_reference_t<decltype(**pos)> p_zero = {AS_FLT_POS(0.0), AS_FLT_POS(0.0), AS_FLT_POS(0.0), AS_FLT_POS(0.0)};
+  constexpr std::remove_reference_t<decltype(**vel)> v_zero = {AS_FLT_VEL(0.0), AS_FLT_VEL(0.0), AS_FLT_VEL(0.0)};
+  constexpr std::remove_reference_t<decltype(**acc)> a_zero = {AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0)};
 #pragma omp parallel for
-  for (size_t ii = 0U; ii < size; ii++) {
+  for (std::remove_const_t<decltype(size)> ii = 0U; ii < size; ii++) {
     (*pos)[ii] = p_zero;
     (*vel)[ii] = v_zero;
     (*vel_tmp)[ii] = v_zero;
@@ -364,14 +364,15 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
 
 #ifdef BENCHMARK_MODE
   const auto num_logbin = std::log2(num_max / num_min) / static_cast<double>((num_bin > 1) ? (num_bin - 1) : (num_bin));
-  for (int32_t ii = 0; ii < num_bin; ii++) {
+  for (std::remove_const_t<decltype(num_bin)> ii = 0; ii < num_bin; ii++) {
     const auto num = static_cast<type::int_idx>(std::nearbyint(num_min * std::exp2(static_cast<double>(ii) * num_logbin)));
 #endif  // BENCHMARK_MODE
 
     // memory allocation
-    alignas(MEMORY_ALIGNMENT) type::position *pos;
-    alignas(MEMORY_ALIGNMENT) type::velocity *vel, *vel_tmp;
-    alignas(MEMORY_ALIGNMENT) type::acceleration *acc;
+    type::position *pos = nullptr;
+    type::velocity *vel = nullptr;
+    type::velocity *vel_tmp = nullptr;
+    type::acceleration *acc = nullptr;
     allocate_Nbody_particles(&pos, &vel, &vel_tmp, &acc, num);
 
     // generate initial-condition
@@ -437,14 +438,14 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
   const auto minimum_elapsed = cfg.get_minimum_elapsed_time();
   while (elapsed < minimum_elapsed) {
     // predict the iteration counts
-    constexpr double booster = 1.25;  ///< additional safety-parameter to reduce rejection rate
-    iter = static_cast<int32_t>(std::exp2(std::ceil(std::log2(static_cast<double>(iter) * booster * minimum_elapsed / elapsed))));
+    constexpr double booster = 1.25;  // additional safety-parameter to reduce rejection rate
+    iter = static_cast<decltype(iter)>(std::exp2(std::ceil(std::log2(static_cast<double>(iter) * booster * minimum_elapsed / elapsed))));
 
     // re-execute the benchmark
     timer.clear();
     cudaDeviceSynchronize();  // complete the calculation on GPU before reading results from CPU
     timer.start();
-    for (int32_t loop = 0; loop < iter; loop++) {
+    for (decltype(iter) loop = 0; loop < iter; loop++) {
       calc_acc(num, pos, acc, num, pos, eps2);
     }
     cudaDeviceSynchronize();  // complete the calculation on GPU before reading results from CPU

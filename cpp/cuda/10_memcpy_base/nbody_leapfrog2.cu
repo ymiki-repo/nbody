@@ -10,14 +10,14 @@
 
 #include <unistd.h>
 
-#include <boost/filesystem.hpp>                ///< boost::filesystem
-#include <boost/math/constants/constants.hpp>  ///< boost::math::constants::two_pi
-#include <boost/program_options.hpp>           ///< boost::program_options
-#include <cmath>                               ///< std::fma
-#include <cstdint>                             ///< int32_t
-#include <iostream>
-#include <memory>
-#include <string>
+#include <boost/filesystem.hpp>                // boost::filesystem
+#include <boost/math/constants/constants.hpp>  // boost::math::constants::two_pi
+#include <boost/program_options.hpp>           // boost::program_options
+#include <cmath>                               // std::fma
+#include <cstdint>                             // int32_t
+#include <iostream>                            // std::cout
+#include <string>                              // std::string
+#include <type_traits>                         // std::remove_const_t
 
 #include "common/cfg.hpp"
 #include "common/conservatives.hpp"
@@ -28,7 +28,7 @@
 #include "util/macro.hpp"
 #include "util/timer.hpp"
 
-constexpr type::flt_acc newton = AS_FLT_ACC(1.0);  ///< gravitational constant
+constexpr type::flt_acc newton = AS_FLT_ACC(1.0);  // gravitational constant
 
 #ifndef NTHREADS
 constexpr type::int_idx NTHREADS = 128U;
@@ -54,10 +54,10 @@ __global__ void calc_acc_device(const type::position *const ipos, type::accelera
 
   // initialization
   const auto pi = ipos[ii];
-  type::acceleration ai = {AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0)};
+  std::remove_reference_t<decltype(*iacc)> ai = {AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0)};
 
   // force evaluation
-  for (type::int_idx jj = 0U; jj < Nj; jj++) {
+  for (std::remove_const_t<decltype(Nj)> jj = 0U; jj < Nj; jj++) {
     // load j-particle
     const auto pj = jpos[jj];
 
@@ -271,32 +271,32 @@ static inline void allocate_Nbody_particles(
     type::position **pos_dev, type::velocity **vel_dev, type::acceleration **acc_dev, type::velocity **vel_tmp, const type::int_idx num) {
   auto size = static_cast<size_t>(num);
   if ((num % NTHREADS) != 0U) {
-    size += static_cast<size_t>(NTHREADS - (num % NTHREADS));
+    size += static_cast<decltype(size)>(NTHREADS - (num % NTHREADS));
   }
-  cudaMallocHost((void **)pos_hst, size * sizeof(type::position));
-  cudaMallocHost((void **)vel_hst, size * sizeof(type::velocity));
-  cudaMallocHost((void **)acc_hst, size * sizeof(type::acceleration));
-  cudaMalloc((void **)pos_dev, size * sizeof(type::position));
-  cudaMalloc((void **)vel_dev, size * sizeof(type::velocity));
-  cudaMalloc((void **)vel_tmp, size * sizeof(type::velocity));
-  cudaMalloc((void **)acc_dev, size * sizeof(type::acceleration));
+  cudaMallocHost((void **)pos_hst, size * sizeof(std::remove_reference_t<decltype(**pos_hst)>));
+  cudaMallocHost((void **)vel_hst, size * sizeof(std::remove_reference_t<decltype(**vel_hst)>));
+  cudaMallocHost((void **)acc_hst, size * sizeof(std::remove_reference_t<decltype(**acc_hst)>));
+  cudaMalloc((void **)pos_dev, size * sizeof(std::remove_reference_t<decltype(**pos_dev)>));
+  cudaMalloc((void **)vel_dev, size * sizeof(std::remove_reference_t<decltype(**vel_dev)>));
+  cudaMalloc((void **)vel_tmp, size * sizeof(std::remove_reference_t<decltype(**vel_tmp)>));
+  cudaMalloc((void **)acc_dev, size * sizeof(std::remove_reference_t<decltype(**acc_dev)>));
 
   // zero-clear arrays (for safety of massless particles)
-  constexpr type::position p_zero = {AS_FLT_POS(0.0), AS_FLT_POS(0.0), AS_FLT_POS(0.0), AS_FLT_POS(0.0)};
-  constexpr type::velocity v_zero = {AS_FLT_VEL(0.0), AS_FLT_VEL(0.0), AS_FLT_VEL(0.0)};
-  constexpr type::acceleration a_zero = {AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0)};
+  constexpr std::remove_reference_t<decltype(**pos)> p_zero = {AS_FLT_POS(0.0), AS_FLT_POS(0.0), AS_FLT_POS(0.0), AS_FLT_POS(0.0)};
+  constexpr std::remove_reference_t<decltype(**vel)> v_zero = {AS_FLT_VEL(0.0), AS_FLT_VEL(0.0), AS_FLT_VEL(0.0)};
+  constexpr std::remove_reference_t<decltype(**acc)> a_zero = {AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0)};
 #pragma omp parallel for
-  for (size_t ii = 0U; ii < size; ii++) {
+  for (std::remove_const_t<decltype(size)> ii = 0U; ii < size; ii++) {
     (*pos_hst)[ii] = p_zero;
     (*vel_hst)[ii] = v_zero;
     (*acc_hst)[ii] = a_zero;
   }
 
   // compy massless particles to device (just for safety)
-  cudaMemcpy(*pos_dev, *pos_hst, size * sizeof(type::position), cudaMemcpyHostToDevice);
-  cudaMemcpy(*vel_dev, *vel_hst, size * sizeof(type::velocity), cudaMemcpyHostToDevice);
-  cudaMemcpy(*vel_tmp, *vel_hst, size * sizeof(type::velocity), cudaMemcpyHostToDevice);
-  cudaMemcpy(*acc_dev, *acc_hst, size * sizeof(type::acceleration), cudaMemcpyHostToDevice);
+  cudaMemcpy(*pos_dev, *pos_hst, size * sizeof(std::remove_reference_t<decltype(**pos_dev)>), cudaMemcpyHostToDevice);
+  cudaMemcpy(*vel_dev, *vel_hst, size * sizeof(std::remove_reference_t<decltype(**vel_dev)>), cudaMemcpyHostToDevice);
+  cudaMemcpy(*vel_tmp, *vel_hst, size * sizeof(std::remove_reference_t<decltype(**vel_tmp)>), cudaMemcpyHostToDevice);
+  cudaMemcpy(*acc_dev, *acc_hst, size * sizeof(std::remove_reference_t<decltype(**acc_dev)>), cudaMemcpyHostToDevice);
 }
 
 ///
@@ -377,20 +377,24 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
 
 #ifdef BENCHMARK_MODE
   const auto num_logbin = std::log2(num_max / num_min) / static_cast<double>((num_bin > 1) ? (num_bin - 1) : (num_bin));
-  for (int32_t ii = 0; ii < num_bin; ii++) {
+  for (std::remove_const_t<decltype(num_bin)> ii = 0; ii < num_bin; ii++) {
     const auto num = static_cast<type::int_idx>(std::nearbyint(num_min * std::exp2(static_cast<double>(ii) * num_logbin)));
 #endif  // BENCHMARK_MODE
 
     // memory allocation
-    alignas(MEMORY_ALIGNMENT) type::position *pos, *pos_dev;
-    alignas(MEMORY_ALIGNMENT) type::velocity *vel, *vel_dev, *vel_tmp;
-    alignas(MEMORY_ALIGNMENT) type::acceleration *acc, *acc_dev;
+    type::position *pos = nullptr;
+    type::velocity *vel = nullptr;
+    type::velocity *vel_tmp = nullptr;
+    type::acceleration *acc = nullptr;
+    type::position *pos_dev = nullptr;
+    type::velocity *vel_dev = nullptr;
+    type::acceleration *acc_dev = nullptr;
     allocate_Nbody_particles(&pos, &vel, &acc, &pos_dev, &vel_dev, &acc_dev, &vel_tmp, num);
 
     // generate initial-condition
     init::set_uniform_sphere(num, pos, vel, M_tot, rad, virial, CAST2VEL(newton));
-    cudaMemcpy(pos_dev, pos, num * sizeof(type::position), cudaMemcpyHostToDevice);
-    cudaMemcpy(vel_dev, vel, num * sizeof(type::velocity), cudaMemcpyHostToDevice);
+    cudaMemcpy(pos_dev, pos, num * sizeof(std::remove_reference_t<decltype(*pos_dev)>), cudaMemcpyHostToDevice);
+    cudaMemcpy(vel_dev, vel, num * sizeof(std::remove_reference_t<decltype(*vel_dev)>), cudaMemcpyHostToDevice);
 
 #ifndef BENCHMARK_MODE
     // write the first snapshot
@@ -434,9 +438,9 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
         time_from_snapshot = AS_FP_M(0.0);
         time += snapshot_interval;
         kick_backward_half(num, vel_dev, acc_dev, vel_tmp, dt);
-        cudaMemcpy(pos, pos_dev, num * sizeof(type::position), cudaMemcpyDeviceToHost);
-        cudaMemcpy(vel, vel_tmp, num * sizeof(type::velocity), cudaMemcpyDeviceToHost);
-        cudaMemcpy(acc, acc_dev, num * sizeof(type::acceleration), cudaMemcpyDeviceToHost);
+        cudaMemcpy(pos, pos_dev, num * sizeof(std::remove_reference_t<decltype(*pos)>), cudaMemcpyDeviceToHost);
+        cudaMemcpy(vel, vel_tmp, num * sizeof(std::remove_reference_t<decltype(*vel)>), cudaMemcpyDeviceToHost);
+        cudaMemcpy(acc, acc_dev, num * sizeof(std::remove_reference_t<decltype(*acc)>), cudaMemcpyDeviceToHost);
         io::write_snapshot(num, pos, vel, acc, file.c_str(), present, time, error);
       }
     }
@@ -455,8 +459,8 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
   const auto minimum_elapsed = cfg.get_minimum_elapsed_time();
   while (elapsed < minimum_elapsed) {
     // predict the iteration counts
-    constexpr double booster = 1.25;  ///< additional safety-parameter to reduce rejection rate
-    iter = static_cast<int32_t>(std::exp2(std::ceil(std::log2(static_cast<double>(iter) * booster * minimum_elapsed / elapsed))));
+    constexpr double booster = 1.25;  // additional safety-parameter to reduce rejection rate
+    iter = static_cast<decltype(iter)>(std::exp2(std::ceil(std::log2(static_cast<double>(iter) * booster * minimum_elapsed / elapsed))));
 
     // re-execute the benchmark
     timer.clear();
