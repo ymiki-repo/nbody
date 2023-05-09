@@ -10,7 +10,8 @@
 #ifndef COMMON_INIT_HPP
 #define COMMON_INIT_HPP
 
-#include <random>  ///< std::random_device
+#include <random>       // std::random_device
+#include <type_traits>  // std::remove_reference_t
 
 #include "common/type.hpp"
 
@@ -34,25 +35,26 @@ static inline void set_uniform_sphere(const type::int_idx num, type::position *p
   // prepare pseudo random numbers
   std::random_device seed_gen;
   std::mt19937 engine(seed_gen());
-  std::uniform_real_distribution<type::flt_pos> dist_uni(AS_FLT_POS(0.0), AS_FLT_POS(1.0));
-  std::normal_distribution<type::flt_vel> dist_nrm(AS_FLT_VEL(0.0), AS_FLT_VEL(1.0));
+  // std::uniform_real_distribution<type::flt_pos> dist_uni(AS_FLT_POS(0.0), AS_FLT_POS(1.0));
+  std::uniform_real_distribution<decltype((*pos).x)> dist_uni(AS_FLT_POS(0.0), AS_FLT_POS(1.0));
+  std::normal_distribution<decltype((*vel).x)> dist_nrm(AS_FLT_VEL(0.0), AS_FLT_VEL(1.0));
 
   // distribute N-body particles
-  for (type::int_idx ii = 0U; ii < num; ii++) {
-    const auto mass = (ii < num) ? (Mtot / static_cast<type::flt_pos>(num)) : AS_FLT_POS(0.0);  // set massless particle to remove if statements in gravity calculation
+  for (std::remove_const_t<decltype(num)> ii = 0U; ii < num; ii++) {
+    const auto mass = (ii < num) ? (Mtot / static_cast<decltype(Mtot)>(num)) : AS_FLT_POS(0.0);  // set massless particle to remove if statements in gravity calculation
 
     const auto rr = rad * std::cbrt(dist_uni(engine));
     const auto prj = AS_FLT_POS(2.0) * dist_uni(engine) - AS_FLT_POS(1.0);
     const auto RR = rr * std::sqrt(AS_FLT_POS(1.0) - prj * prj);
-    const auto theta = boost::math::constants::two_pi<type::flt_pos>() * dist_uni(engine);
-    type::position pi;
+    const auto theta = boost::math::constants::two_pi<decltype((*pos).x)>() * dist_uni(engine);
+    auto pi = type::position{};
     pi.x = RR * std::cos(theta);
     pi.y = RR * std::sin(theta);
     pi.z = rr * prj;
     pi.w = mass;
 
     // set particle velocity
-    type::velocity vi;
+    auto vi = type::velocity{};
     vi.x = sig1d * dist_nrm(engine);
     vi.y = sig1d * dist_nrm(engine);
     vi.z = sig1d * dist_nrm(engine);
@@ -68,9 +70,8 @@ static inline void set_uniform_sphere(const type::int_idx num, type::position *p
   auto vx = AS_FLT_VEL(0.0);
   auto vy = AS_FLT_VEL(0.0);
   auto vz = AS_FLT_VEL(0.0);
-#pragma omp parallel for reduction(+ \
-                                   : cx, cy, cz, vx, vy, vz)
-  for (type::int_idx ii = 0U; ii < num; ii++) {
+#pragma omp parallel for reduction(+ : cx, cy, cz, vx, vy, vz)
+  for (std::remove_const_t<decltype(num)> ii = 0U; ii < num; ii++) {
     // evaluate center-of-mass
     const auto pi = pos[ii];
     cx += pi.w * pi.x;
@@ -91,7 +92,7 @@ static inline void set_uniform_sphere(const type::int_idx num, type::position *p
   vy *= CAST2VEL(M_inv);
   vz *= CAST2VEL(M_inv);
 #pragma omp parallel for
-  for (type::int_idx ii = 0U; ii < num; ii++) {
+  for (std::remove_const_t<decltype(num)> ii = 0U; ii < num; ii++) {
     auto pi = pos[ii];
     pi.x -= cx;
     pi.y -= cy;

@@ -226,7 +226,7 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
  * <details><summary>Slurm環境などでの実行方法</summary>
 
    ```sh
-   julia jl/plot/error.jl                                                # show time evolution of conservatives and the virial ratio
+   julia jl/plot/error.jl --png                                          # show time evolution of conservatives and the virial ratio
    sbatch --export=EXEC="julia jl/plot/dot.jl" sh/slurm/plot_parallel.sh # show particles distribution by using dots
    visit &                                                               # open dat/FILENAME_snp*.xdmf files and visualize them
    ```

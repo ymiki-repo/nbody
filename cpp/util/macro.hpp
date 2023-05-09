@@ -10,9 +10,9 @@
 #ifndef UTIL_MACRO_HPP
 #define UTIL_MACRO_HPP
 
-#include <cstdlib>   ///< std::exit, EXIT_FAILURE
-#include <iostream>  ///< std::ostream (std::cout, std::cerr)
-#include <string>    ///< std::string
+#include <cstdlib>   // std::exit, EXIT_FAILURE
+#include <iostream>  // std::ostream (std::cout, std::cerr)
+#include <string>    // std::string
 
 ///
 /// @brief print message with the source information
@@ -34,7 +34,7 @@
 ///
 #ifdef NDEBUG
 #define DEBUG_PRINT(dst, msg)
-#else  /// NDEBUG
+#else  // NDEBUG
 #define DEBUG_PRINT(dst, msg) PRINT_MSG(dst, msg)
 #endif  // NDEBUG
 

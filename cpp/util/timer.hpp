@@ -10,7 +10,7 @@
 #ifndef UTIL_TIMER_HPP
 #define UTIL_TIMER_HPP
 
-#include <boost/timer/timer.hpp>  ///< boost::timer::cpu_timer
+#include <boost/timer/timer.hpp>  // boost::timer::cpu_timer
 
 ///
 /// @brief utility tools
@@ -69,9 +69,9 @@ class timer {
   }
 
  private:
-  boost::timer::cpu_timer elapsed;  ///< stopwatch of the simulation to measure the elapsed time
-  double elapsed_wall = 0.0;        ///< elapsed time as wall clock time
-  double elapsed_user = 0.0;        ///< elapsed time as user CPU time
+  boost::timer::cpu_timer elapsed;  // stopwatch of the simulation to measure the elapsed time
+  double elapsed_wall = 0.0;        // elapsed time as wall clock time
+  double elapsed_user = 0.0;        // elapsed time as user CPU time
 };
 }  // namespace util
 

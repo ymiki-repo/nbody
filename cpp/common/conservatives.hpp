@@ -10,6 +10,8 @@
 #ifndef COMMON_CONSERVATIVES_HPP
 #define COMMON_CONSERVATIVES_HPP
 
+#include <type_traits>  // std::remove_const_t
+
 #include "common/type.hpp"
 #include "util/hdf5.hpp"
 
@@ -134,9 +136,8 @@ class conservatives {
     Lx = AS_FP_H(0.0);
     Ly = AS_FP_H(0.0);
     Lz = AS_FP_H(0.0);
-#pragma omp parallel for reduction(+ \
-                                   : px, py, pz, Lx, Ly, Lz, E_kin, E_pot)
-    for (type::int_idx ii = 0U; ii < num; ii++) {
+#pragma omp parallel for reduction(+ : px, py, pz, Lx, Ly, Lz, E_kin, E_pot)
+    for (std::remove_const_t<decltype(num)> ii = 0U; ii < num; ii++) {
       const auto pi = pos[ii];
       const auto xi = type::cast2fp_h(pi.x);
       const auto yi = type::cast2fp_h(pi.y);
@@ -215,37 +216,37 @@ class conservatives {
     }
   }
 
-  type::fp_h E_kin = AS_FP_H(0.0);          ///< kinetic energy
-  type::fp_h E_pot = AS_FP_H(0.0);          ///< potential energy
-  type::fp_h E_tot = AS_FP_H(0.0);          ///< total energy
-  type::fp_h px = AS_FP_H(0.0);             ///< x-component of momentum
-  type::fp_h py = AS_FP_H(0.0);             ///< y-component of momentum
-  type::fp_h pz = AS_FP_H(0.0);             ///< z-component of momentum
-  type::fp_h Lx = AS_FP_H(0.0);             ///< x-component of angular momentum
-  type::fp_h Ly = AS_FP_H(0.0);             ///< y-component of angular momentum
-  type::fp_h Lz = AS_FP_H(0.0);             ///< z-component of angular momentum
-  type::fp_h inv_E_tot_ini = AS_FP_H(1.0);  ///< inverse of total energy at the initial step
-  type::fp_h px_ini = AS_FP_H(0.0);         ///< x-component of momentum at the initial step
-  type::fp_h py_ini = AS_FP_H(0.0);         ///< y-component of momentum at the initial step
-  type::fp_h pz_ini = AS_FP_H(0.0);         ///< z-component of momentum at the initial step
-  type::fp_h Lx_ini = AS_FP_H(0.0);         ///< x-component of angular momentum at the initial step
-  type::fp_h Ly_ini = AS_FP_H(0.0);         ///< y-component of angular momentum at the initial step
-  type::fp_h Lz_ini = AS_FP_H(0.0);         ///< z-component of angular momentum at the initial step
-  type::fp_h E_tot_err = AS_FP_H(0.0);      ///< relative error for total energy
-  type::fp_h px_err = AS_FP_H(0.0);         ///< absolute error for x-component of momentum
-  type::fp_h py_err = AS_FP_H(0.0);         ///< absolute error for y-component of momentum
-  type::fp_h pz_err = AS_FP_H(0.0);         ///< absolute error for z-component of momentum
-  type::fp_h Lx_err = AS_FP_H(0.0);         ///< absolute error for x-component of angular momentum
-  type::fp_h Ly_err = AS_FP_H(0.0);         ///< absolute error for y-component of angular momentum
-  type::fp_h Lz_err = AS_FP_H(0.0);         ///< absolute error for z-component of angular momentum
-  type::fp_h E_tot_worst = AS_FP_H(0.0);    ///< the worst relative error for total energy
-  type::fp_h px_worst = AS_FP_H(0.0);       ///< the worst absolute error for x-component of momentum
-  type::fp_h py_worst = AS_FP_H(0.0);       ///< the worst absolute error for y-component of momentum
-  type::fp_h pz_worst = AS_FP_H(0.0);       ///< the worst absolute error for z-component of momentum
-  type::fp_h Lx_worst = AS_FP_H(0.0);       ///< the worst absolute error for x-component of angular momentum
-  type::fp_h Ly_worst = AS_FP_H(0.0);       ///< the worst absolute error for y-component of angular momentum
-  type::fp_h Lz_worst = AS_FP_H(0.0);       ///< the worst absolute error for z-component of angular momentum
-  bool initialized = false;                 ///< true if the conservatives are initialized
+  type::fp_h E_kin = AS_FP_H(0.0);          // kinetic energy
+  type::fp_h E_pot = AS_FP_H(0.0);          // potential energy
+  type::fp_h E_tot = AS_FP_H(0.0);          // total energy
+  type::fp_h px = AS_FP_H(0.0);             // x-component of momentum
+  type::fp_h py = AS_FP_H(0.0);             // y-component of momentum
+  type::fp_h pz = AS_FP_H(0.0);             // z-component of momentum
+  type::fp_h Lx = AS_FP_H(0.0);             // x-component of angular momentum
+  type::fp_h Ly = AS_FP_H(0.0);             // y-component of angular momentum
+  type::fp_h Lz = AS_FP_H(0.0);             // z-component of angular momentum
+  type::fp_h inv_E_tot_ini = AS_FP_H(1.0);  // inverse of total energy at the initial step
+  type::fp_h px_ini = AS_FP_H(0.0);         // x-component of momentum at the initial step
+  type::fp_h py_ini = AS_FP_H(0.0);         // y-component of momentum at the initial step
+  type::fp_h pz_ini = AS_FP_H(0.0);         // z-component of momentum at the initial step
+  type::fp_h Lx_ini = AS_FP_H(0.0);         // x-component of angular momentum at the initial step
+  type::fp_h Ly_ini = AS_FP_H(0.0);         // y-component of angular momentum at the initial step
+  type::fp_h Lz_ini = AS_FP_H(0.0);         // z-component of angular momentum at the initial step
+  type::fp_h E_tot_err = AS_FP_H(0.0);      // relative error for total energy
+  type::fp_h px_err = AS_FP_H(0.0);         // absolute error for x-component of momentum
+  type::fp_h py_err = AS_FP_H(0.0);         // absolute error for y-component of momentum
+  type::fp_h pz_err = AS_FP_H(0.0);         // absolute error for z-component of momentum
+  type::fp_h Lx_err = AS_FP_H(0.0);         // absolute error for x-component of angular momentum
+  type::fp_h Ly_err = AS_FP_H(0.0);         // absolute error for y-component of angular momentum
+  type::fp_h Lz_err = AS_FP_H(0.0);         // absolute error for z-component of angular momentum
+  type::fp_h E_tot_worst = AS_FP_H(0.0);    // the worst relative error for total energy
+  type::fp_h px_worst = AS_FP_H(0.0);       // the worst absolute error for x-component of momentum
+  type::fp_h py_worst = AS_FP_H(0.0);       // the worst absolute error for y-component of momentum
+  type::fp_h pz_worst = AS_FP_H(0.0);       // the worst absolute error for z-component of momentum
+  type::fp_h Lx_worst = AS_FP_H(0.0);       // the worst absolute error for x-component of angular momentum
+  type::fp_h Ly_worst = AS_FP_H(0.0);       // the worst absolute error for y-component of angular momentum
+  type::fp_h Lz_worst = AS_FP_H(0.0);       // the worst absolute error for z-component of angular momentum
+  bool initialized = false;                 // true if the conservatives are initialized
 };
 
 #endif  // COMMON_CONSERVATIVES_HPP

@@ -10,11 +10,10 @@
 #ifndef COMMON_IO_HPP
 #define COMMON_IO_HPP
 
-#include <fstream>  ///< std::ofstream
-#include <iomanip>  ///< std::setw
-#include <sstream>  ///< std::stringstream
+#include <fstream>  // std::ofstream
+#include <iomanip>  // std::setw
+#include <sstream>  // std::stringstream
 
-// #include <cstdint>  ///< uint??_t
 #include "common/conservatives.hpp"
 #include "common/type.hpp"
 #include "util/hdf5.hpp"
@@ -23,8 +22,8 @@ namespace io {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wglobal-constructors"
 #pragma GCC diagnostic ignored "-Wexit-time-destructors"
-static const std::string folder_dat = "dat/";  ///< folder for output data files
-static const std::string folder_log = "log/";  ///< folder for output log files
+static const std::string folder_dat = "dat/";  // folder for output data files
+static const std::string folder_log = "log/";  // folder for output log files
 #pragma GCC diagnostic pop
 
 // assume number of floating-point operations per interaction
@@ -35,9 +34,9 @@ static const std::string folder_log = "log/";  ///< folder for output log files
 #ifdef USE_POTENTIAL
 // FP_L: additional 1 multiplication for potential calculation
 // FP_M: additional 1 addition for potential calculation
-constexpr double FLOPS_PER_INTERACTION = 46.0;  ///< assumed number of floating-point operations per interaction
+constexpr double FLOPS_PER_INTERACTION = 46.0;  // assumed number of floating-point operations per interaction
 #else                                           // USE_POTENTIAL
-constexpr double FLOPS_PER_INTERACTION = 44.0;  ///< assumed number of floating-point operations per interaction
+constexpr double FLOPS_PER_INTERACTION = 44.0;  // assumed number of floating-point operations per interaction
 #endif                                          // USE_POTENTIAL
 #else                                           // USE_HERMITE
 // FP_M: 3 subtractions, 3 additions = 6 Flops
@@ -46,9 +45,9 @@ constexpr double FLOPS_PER_INTERACTION = 44.0;  ///< assumed number of floating-
 #ifdef USE_POTENTIAL
 // FP_L: additional 1 multiplication for potential calculation
 // FP_M: additional 1 addition for potential calculation
-constexpr double FLOPS_PER_INTERACTION = 24.0;  ///< assumed number of floating-point operations per interaction
+constexpr double FLOPS_PER_INTERACTION = 24.0;  // assumed number of floating-point operations per interaction
 #else   // USE_POTENTIAL
-constexpr double FLOPS_PER_INTERACTION = 22.0;  ///< assumed number of floating-point operations per interaction
+constexpr double FLOPS_PER_INTERACTION = 22.0;  // assumed number of floating-point operations per interaction
 #endif  // USE_POTENTIAL
 #endif  // USE_HERMITE
 

@@ -83,9 +83,9 @@ namespace util::type {
 ///
 template <class Type>
 struct alignas(4 * sizeof(Type)) vec3 {
-  Type x;  ///< x-component of the vector
-  Type y;  ///< y-component of the vector
-  Type z;  ///< z-component of the vector
+  Type x;  // x-component of the vector
+  Type y;  // y-component of the vector
+  Type z;  // z-component of the vector
 };
 
 ///
@@ -93,10 +93,10 @@ struct alignas(4 * sizeof(Type)) vec3 {
 ///
 template <class Type>
 struct alignas(4 * sizeof(Type)) vec4 {
-  Type x;  ///< x-component of the vector
-  Type y;  ///< y-component of the vector
-  Type z;  ///< z-component of the vector
-  Type w;  ///< w-component of the vector
+  Type x;  // x-component of the vector
+  Type y;  // y-component of the vector
+  Type z;  // z-component of the vector
+  Type w;  // w-component of the vector
 };
 
 }  // namespace util::type

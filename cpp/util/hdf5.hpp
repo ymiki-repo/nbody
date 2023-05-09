@@ -10,17 +10,17 @@
 #ifndef UTIL_HDF5_HPP
 #define UTIL_HDF5_HPP
 
-#include <hdf5.h>  ///< HDF5
+#include <hdf5.h>  // HDF5
 
-#include <complex>   ///< std::complex (to commit a new datatype)
-#include <cstdint>   ///< int??_t
-#include <cstdlib>   ///< std::exit
-#include <iostream>  ///< std::cerr
-#include <string>    ///< std::string
-#include <vector>    ///< std::vector
+#include <complex>   // std::complex (to commit a new datatype)
+#include <cstdint>   // int??_t
+#include <cstdlib>   // std::exit
+#include <iostream>  // std::cerr
+#include <string>    // std::string
+#include <vector>    // std::vector
 
-#include "util/macro.hpp"  ///< KILL_JOB
-#include "util/type.hpp"   ///< util::type
+#include "util/macro.hpp"  // KILL_JOB
+#include "util/type.hpp"   // util::type
 
 // ///
 // /// @brief enable Gzip compression
@@ -101,9 +101,9 @@ static inline constexpr void pcall(const herr_t err) noexcept(false) { _call_phd
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
 
-static hid_t h5t_complex_flt;   ///< user-defined datatype for std::complex<float> in HDF5
-static hid_t h5t_complex_dbl;   ///< user-defined datatype for std::complex<double> in HDF5
-static hid_t h5t_complex_ldbl;  ///< user-defined datatype for std::complex<long double> in HDF5
+static hid_t h5t_complex_flt;   // user-defined datatype for std::complex<float> in HDF5
+static hid_t h5t_complex_dbl;   // user-defined datatype for std::complex<double> in HDF5
+static hid_t h5t_complex_ldbl;  // user-defined datatype for std::complex<long double> in HDF5
 ///
 /// @brief prepare datatype for complex numbers
 ///
@@ -158,9 +158,9 @@ inline void remove_datatype_vec3() noexcept(false) {
   call(H5Tclose(h5t_vec3_ldbl));
 }
 
-static hid_t h5t_vec4_flt;   ///< user-defined datatype for util::type::vec4<float> in HDF5
-static hid_t h5t_vec4_dbl;   ///< user-defined datatype for util::type::vec4<double> in HDF5
-static hid_t h5t_vec4_ldbl;  ///< user-defined datatype for util::type::vec4<long double> in HDF5
+static hid_t h5t_vec4_flt;   // user-defined datatype for util::type::vec4<float> in HDF5
+static hid_t h5t_vec4_dbl;   // user-defined datatype for util::type::vec4<double> in HDF5
+static hid_t h5t_vec4_ldbl;  // user-defined datatype for util::type::vec4<long double> in HDF5
 ///
 /// @brief prepare datatype for util::type::vec4
 ///
@@ -192,24 +192,24 @@ inline void remove_datatype_vec4() noexcept(false) {
   call(H5Tclose(h5t_vec4_ldbl));
 }
 
-static inline auto h5type([[maybe_unused]] const int16_t val) noexcept(true) { return (H5T_NATIVE_SHORT); }                      ///< returns predefined native datatype for int16_t
-static inline auto h5type([[maybe_unused]] const int32_t val) noexcept(true) { return (H5T_NATIVE_INT); }                        ///< returns predefined native datatype for int32_t
-static inline auto h5type([[maybe_unused]] const int64_t val) noexcept(true) { return (H5T_NATIVE_LONG); }                       ///< returns predefined native datatype for int64_t
-static inline auto h5type([[maybe_unused]] const uint16_t val) noexcept(true) { return (H5T_NATIVE_USHORT); }                    ///< returns predefined native datatype for uint16_t
-static inline auto h5type([[maybe_unused]] const uint32_t val) noexcept(true) { return (H5T_NATIVE_UINT); }                      ///< returns predefined native datatype for uint32_t
-static inline auto h5type([[maybe_unused]] const uint64_t val) noexcept(true) { return (H5T_NATIVE_ULONG); }                     ///< returns predefined native datatype for uint64_t
-static inline auto h5type([[maybe_unused]] const float val) noexcept(true) { return (H5T_NATIVE_FLOAT); }                        ///< returns predefined native datatype for float
-static inline auto h5type([[maybe_unused]] const double val) noexcept(true) { return (H5T_NATIVE_DOUBLE); }                      ///< returns predefined native datatype for double
-static inline auto h5type([[maybe_unused]] const long double val) noexcept(true) { return (H5T_NATIVE_LDOUBLE); }                ///< returns predefined native datatype for long double
-static inline auto h5type([[maybe_unused]] const std::complex<float> val) noexcept(true) { return (h5t_complex_flt); }           ///< returns user-define datatype for std::complex<float>
-static inline auto h5type([[maybe_unused]] const std::complex<double> val) noexcept(true) { return (h5t_complex_dbl); }          ///< returns user-define datatype for std::complex<double>
-static inline auto h5type([[maybe_unused]] const std::complex<long double> val) noexcept(true) { return (h5t_complex_ldbl); }    ///< returns user-define datatype for std::complex<long double>
-static inline auto h5type([[maybe_unused]] const util::type::vec3<float> &val) noexcept(true) { return (h5t_vec3_flt); }         ///< returns user-define datatype for util::type::vec3<float>
-static inline auto h5type([[maybe_unused]] const util::type::vec3<double> &val) noexcept(true) { return (h5t_vec3_dbl); }        ///< returns user-define datatype for util::type::vec3<double>
-static inline auto h5type([[maybe_unused]] const util::type::vec3<long double> &val) noexcept(true) { return (h5t_vec3_ldbl); }  ///< returns user-define datatype for util::type::vec3<long double>
-static inline auto h5type([[maybe_unused]] const util::type::vec4<float> &val) noexcept(true) { return (h5t_vec4_flt); }         ///< returns user-define datatype for util::type::vec4<float>
-static inline auto h5type([[maybe_unused]] const util::type::vec4<double> &val) noexcept(true) { return (h5t_vec4_dbl); }        ///< returns user-define datatype for util::type::vec4<double>
-static inline auto h5type([[maybe_unused]] const util::type::vec4<long double> &val) noexcept(true) { return (h5t_vec4_ldbl); }  ///< returns user-define datatype for util::type::vec4<long double>
+static inline auto h5type([[maybe_unused]] const int16_t val) noexcept(true) { return (H5T_NATIVE_SHORT); }                      // returns predefined native datatype for int16_t
+static inline auto h5type([[maybe_unused]] const int32_t val) noexcept(true) { return (H5T_NATIVE_INT); }                        // returns predefined native datatype for int32_t
+static inline auto h5type([[maybe_unused]] const int64_t val) noexcept(true) { return (H5T_NATIVE_LONG); }                       // returns predefined native datatype for int64_t
+static inline auto h5type([[maybe_unused]] const uint16_t val) noexcept(true) { return (H5T_NATIVE_USHORT); }                    // returns predefined native datatype for uint16_t
+static inline auto h5type([[maybe_unused]] const uint32_t val) noexcept(true) { return (H5T_NATIVE_UINT); }                      // returns predefined native datatype for uint32_t
+static inline auto h5type([[maybe_unused]] const uint64_t val) noexcept(true) { return (H5T_NATIVE_ULONG); }                     // returns predefined native datatype for uint64_t
+static inline auto h5type([[maybe_unused]] const float val) noexcept(true) { return (H5T_NATIVE_FLOAT); }                        // returns predefined native datatype for float
+static inline auto h5type([[maybe_unused]] const double val) noexcept(true) { return (H5T_NATIVE_DOUBLE); }                      // returns predefined native datatype for double
+static inline auto h5type([[maybe_unused]] const long double val) noexcept(true) { return (H5T_NATIVE_LDOUBLE); }                // returns predefined native datatype for long double
+static inline auto h5type([[maybe_unused]] const std::complex<float> val) noexcept(true) { return (h5t_complex_flt); }           // returns user-define datatype for std::complex<float>
+static inline auto h5type([[maybe_unused]] const std::complex<double> val) noexcept(true) { return (h5t_complex_dbl); }          // returns user-define datatype for std::complex<double>
+static inline auto h5type([[maybe_unused]] const std::complex<long double> val) noexcept(true) { return (h5t_complex_ldbl); }    // returns user-define datatype for std::complex<long double>
+static inline auto h5type([[maybe_unused]] const util::type::vec3<float> &val) noexcept(true) { return (h5t_vec3_flt); }         // returns user-define datatype for util::type::vec3<float>
+static inline auto h5type([[maybe_unused]] const util::type::vec3<double> &val) noexcept(true) { return (h5t_vec3_dbl); }        // returns user-define datatype for util::type::vec3<double>
+static inline auto h5type([[maybe_unused]] const util::type::vec3<long double> &val) noexcept(true) { return (h5t_vec3_ldbl); }  // returns user-define datatype for util::type::vec3<long double>
+static inline auto h5type([[maybe_unused]] const util::type::vec4<float> &val) noexcept(true) { return (h5t_vec4_flt); }         // returns user-define datatype for util::type::vec4<float>
+static inline auto h5type([[maybe_unused]] const util::type::vec4<double> &val) noexcept(true) { return (h5t_vec4_dbl); }        // returns user-define datatype for util::type::vec4<double>
+static inline auto h5type([[maybe_unused]] const util::type::vec4<long double> &val) noexcept(true) { return (h5t_vec4_ldbl); }  // returns user-define datatype for util::type::vec4<long double>
 
 ///
 /// @brief create a new simple dataspace
