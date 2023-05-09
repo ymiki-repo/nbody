@@ -10,14 +10,14 @@
 
 #include <unistd.h>
 
-#include <boost/filesystem.hpp>                ///< boost::filesystem
-#include <boost/math/constants/constants.hpp>  ///< boost::math::constants::two_pi
-#include <boost/program_options.hpp>           ///< boost::program_options
-#include <cmath>                               ///< std::fma
-#include <cstdint>                             ///< int32_t
-#include <iostream>
-#include <memory>
-#include <string>
+#include <boost/filesystem.hpp>                // boost::filesystem
+#include <boost/math/constants/constants.hpp>  // boost::math::constants::two_pi
+#include <boost/program_options.hpp>           // boost::program_options
+#include <cmath>                               // std::fma
+#include <cstdint>                             // int32_t
+#include <iostream>                            // std::cout
+#include <string>                              // std::string
+#include <type_traits>                         // std::remove_const_t
 
 #include "common/cfg.hpp"
 #include "common/conservatives.hpp"
@@ -28,7 +28,7 @@
 #include "util/macro.hpp"
 #include "util/timer.hpp"
 
-constexpr type::flt_acc newton = AS_FLT_ACC(1.0);  ///< gravitational constant
+constexpr type::flt_acc newton = AS_FLT_ACC(1.0);  // gravitational constant
 
 #ifndef NTHREADS
 constexpr type::int_idx NTHREADS = 256U;
@@ -54,15 +54,15 @@ static inline void calc_acc(
     const type::int_idx Ni, const type::position *const ipos, const type::velocity *const ivel, type::acceleration *__restrict iacc, type::jerk *__restrict ijrk,
     const type::int_idx Nj, const type::position *const jpos, const type::velocity *const jvel, const type::flt_pos eps2) {
 #pragma omp target teams loop
-  for (type::int_idx ii = 0U; ii < Ni; ii++) {
+  for (std::remove_const_t<decltype(Ni)> ii = 0U; ii < Ni; ii++) {
     // initialization
     const auto pi = ipos[ii];
     const auto vi = ivel[ii];
-    type::acceleration ai = {AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0)};
-    type::jerk ji = {AS_FLT_JRK(0.0), AS_FLT_JRK(0.0), AS_FLT_JRK(0.0)};
+    std::remove_reference_t<decltype(*iacc)> ai = {AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0)};
+    std::remove_reference_t<decltype(*ijrk)> ji = {AS_FLT_JRK(0.0), AS_FLT_JRK(0.0), AS_FLT_JRK(0.0)};
 
     // force evaluation
-    for (type::int_idx jj = 0U; jj < Nj; jj++) {
+    for (std::remove_const_t<decltype(Nj)> jj = 0U; jj < Nj; jj++) {
       // load j-particle
       const auto pj = jpos[jj];
       const auto vj = jvel[jj];
@@ -89,7 +89,7 @@ static inline void calc_acc(
       const auto dvx = vj.x - vi.x;
       const auto dvy = vj.y - vi.y;
       const auto dvz = vj.z - vi.z;
-      const auto bet = AS_FP_M(-3.0) * (dx * dvx + dy * dvy + dz * dvz) * CAST2JRK(r2_inv);  ///< 3 * beta
+      const auto bet = AS_FLT_JRK(-3.0) * (dx * dvx + dy * dvy + dz * dvz) * CAST2JRK(r2_inv);  // 3 * beta
       // jerk accumulation
       ji.x += alp * (dvx + bet * dx);
       ji.y += alp * (dvy + bet * dy);
@@ -117,7 +117,7 @@ static inline void trim_acc(const type::int_idx Ni, type::acceleration *__restri
 #endif  // CALCULATE_POTENTIAL
 ) {
 #pragma omp target teams loop
-  for (type::int_idx ii = 0U; ii < Ni; ii++) {
+  for (std::remove_const_t<decltype(Ni)> ii = 0U; ii < Ni; ii++) {
     // initialization
     auto ai = acc[ii];
 
@@ -161,7 +161,7 @@ static inline void guess_initial_dt(
     const type::int_idx Nj, const type::position *const jpos, const type::velocity *const jvel, const type::acceleration *const jacc, const type::jerk *const jjrk,
     const type::flt_pos eps2, const type::fp_m eta, type::fp_m *__restrict dt) {
 #pragma omp target teams loop
-  for (type::int_idx ii = 0U; ii < Ni; ii++) {
+  for (std::remove_const_t<decltype(Ni)> ii = 0U; ii < Ni; ii++) {
     // initialization
     const auto p_i = ipos[ii];
     const auto v_i = ivel[ii];
@@ -175,7 +175,7 @@ static inline void guess_initial_dt(
     auto cz = AS_FP_M(0.0);
 
     // force evaluation
-    for (type::int_idx jj = 0U; jj < Nj; jj++) {
+    for (std::remove_const_t<decltype(Nj)> jj = 0U; jj < Nj; jj++) {
       // load j-particle
       const auto p_j = jpos[jj];
       const auto v_j = jvel[jj];
@@ -252,7 +252,7 @@ static inline void predict(
     const type::int_idx jnum, const type::fp_m *const t_pres, const type::position *const pos0, const type::velocity *const vel0, const type::acceleration *const acc0, const type::jerk *const jrk0,
     type::position *__restrict pos1, type::velocity *__restrict vel1, const type::fp_m t_next) {
 #pragma omp target teams loop
-  for (type::int_idx jj = 0U; jj < jnum; jj++) {
+  for (std::remove_const_t<decltype(jnum)> jj = 0U; jj < jnum; jj++) {
     // set time step for this particle
     const auto dt = t_next - t_pres[jj];
     const auto dt_2 = AS_FP_M(0.5) * dt;
@@ -264,7 +264,7 @@ static inline void predict(
     const auto j0 = jrk0[jj];
 
     // predict particle position and velocity
-    type::velocity v1;
+    auto v1 = std::remove_reference_t<decltype(*vel1)>{};
     v1.x = v0.x + dt * (a0.x + dt_2 * j0.x);
     v1.y = v0.y + dt * (a0.y + dt_2 * j0.y);
     v1.z = v0.z + dt * (a0.z + dt_2 * j0.z);
@@ -300,7 +300,7 @@ static inline void correct(
     const type::int_idx inum, type::fp_m *__restrict t_pres, type::position *__restrict pos0, type::velocity *__restrict vel0, type::acceleration *__restrict acc0, type::jerk *__restrict jrk0, type::fp_m *__restrict t_next,
     const type::position *const pos1, const type::velocity *const vel1, const type::acceleration *const acc1, const type::jerk *const jrk1, const type::fp_m t1, const type::fp_m eta) {
 #pragma omp target teams loop
-  for (type::int_idx ii = 0U; ii < inum; ii++) {
+  for (std::remove_const_t<decltype(inum)> ii = 0U; ii < inum; ii++) {
     // set time step for this particle
     const auto dt = t1 - t_pres[ii];
     t_pres[ii] = t1;
@@ -376,7 +376,7 @@ static inline void sort_particles(const type::int_idx num, type::int_idx *__rest
 #ifndef EXEC_SMALL_FUNC_ON_HOST
 #pragma omp target teams loop
 #endif  // EXEC_SMALL_FUNC_ON_HOST
-  for (type::int_idx ii = 0U; ii < num; ii++) {
+  for (std::remove_const_t<decltype(num)> ii = 0U; ii < num; ii++) {
     const auto jj = tag[ii];
 
     (*dst).pos[ii] = (*src).pos[jj];
@@ -410,7 +410,7 @@ static inline auto set_time_step(const type::int_idx num, type::nbody &body, con
   if (time_next < time_sync) {
     // adopt block time step
     const auto next_time_next = time_pres + std::exp2(AS_FP_M(1.0) + std::floor(std::log2(time_next - time_pres)));
-    for (type::int_idx ii = NTHREADS; ii < num; ii += NTHREADS) {
+    for (std::remove_const_t<decltype(num)> ii = NTHREADS; ii < num; ii += NTHREADS) {
       if (body.nxt[ii] >= next_time_next) {
         Ni = ii;
         break;
@@ -422,7 +422,7 @@ static inline auto set_time_step(const type::int_idx num, type::nbody &body, con
 #ifndef EXEC_SMALL_FUNC_ON_HOST
 #pragma omp target teams loop
 #endif  // EXEC_SMALL_FUNC_ON_HOST
-  for (type::int_idx ii = 0U; ii < Ni; ii++) {
+  for (std::remove_const_t<decltype(Ni)> ii = 0U; ii < Ni; ii++) {
     body.nxt[ii] = time_next;
   }
 
@@ -440,7 +440,7 @@ static inline void reset_particle_time(const type::int_idx num, type::nbody &bod
 #ifndef EXEC_SMALL_FUNC_ON_HOST
 #pragma omp target teams loop
 #endif  // EXEC_SMALL_FUNC_ON_HOST
-  for (type::int_idx ii = 0U; ii < num; ii++) {
+  for (std::remove_const_t<decltype(num)> ii = 0U; ii < num; ii++) {
     body.prs[ii] = AS_FP_M(0.0);
     body.nxt[ii] -= snapshot_interval;
   }
@@ -470,65 +470,65 @@ static inline void reset_particle_time(const type::int_idx num, type::nbody &bod
 /// @param[in] num number of N-body particles
 ///
 static inline void allocate_Nbody_particles(
-    type::nbody &body0, std::unique_ptr<type::position[]> &pos0, std::unique_ptr<type::velocity[]> &vel0, std::unique_ptr<type::acceleration[]> &acc0, std::unique_ptr<type::jerk[]> &jrk0, std::unique_ptr<type::fp_m[]> &prs0, std::unique_ptr<type::fp_m[]> &nxt0, std::unique_ptr<type::int_idx[]> &idx0,
-    type::nbody &body1, std::unique_ptr<type::position[]> &pos1, std::unique_ptr<type::velocity[]> &vel1, std::unique_ptr<type::acceleration[]> &acc1, std::unique_ptr<type::jerk[]> &jrk1, std::unique_ptr<type::fp_m[]> &prs1, std::unique_ptr<type::fp_m[]> &nxt1, std::unique_ptr<type::int_idx[]> &idx1,
-    std::unique_ptr<type::int_idx[]> &tag, const type::int_idx num) {
+    type::nbody &body0, type::position **pos0, type::velocity **vel0, type::acceleration **acc0, type::jerk **jrk0, type::fp_m **prs0, type::fp_m **nxt0, type::int_idx **idx0,
+    type::nbody &body1, type::position **pos1, type::velocity **vel1, type::acceleration **acc1, type::jerk **jrk1, type::fp_m **prs1, type::fp_m **nxt1, type::int_idx **idx1,
+    type::int_idx **tag, const type::int_idx num) {
   const auto size = static_cast<size_t>(num);
-  pos0 = std::make_unique<type::position[]>(size);
-  pos1 = std::make_unique<type::position[]>(size);
-  vel0 = std::make_unique<type::velocity[]>(size);
-  vel1 = std::make_unique<type::velocity[]>(size);
-  acc0 = std::make_unique<type::acceleration[]>(size);
-  acc1 = std::make_unique<type::acceleration[]>(size);
-  jrk0 = std::make_unique<type::jerk[]>(size);
-  jrk1 = std::make_unique<type::jerk[]>(size);
-  prs0 = std::make_unique<type::fp_m[]>(size);
-  prs1 = std::make_unique<type::fp_m[]>(size);
-  nxt0 = std::make_unique<type::fp_m[]>(size);
-  nxt1 = std::make_unique<type::fp_m[]>(size);
-  idx0 = std::make_unique<type::int_idx[]>(size);
-  idx1 = std::make_unique<type::int_idx[]>(size);
-  tag = std::make_unique<type::int_idx[]>(size);
+  *pos0 = new (std::align_val_t{MEMORY_ALIGNMENT}) std::remove_reference_t<decltype(**pos0)>[size];
+  *pos1 = new (std::align_val_t{MEMORY_ALIGNMENT}) std::remove_reference_t<decltype(**pos1)>[size];
+  *vel0 = new (std::align_val_t{MEMORY_ALIGNMENT}) std::remove_reference_t<decltype(**vel0)>[size];
+  *vel1 = new (std::align_val_t{MEMORY_ALIGNMENT}) std::remove_reference_t<decltype(**vel1)>[size];
+  *acc0 = new (std::align_val_t{MEMORY_ALIGNMENT}) std::remove_reference_t<decltype(**acc0)>[size];
+  *acc1 = new (std::align_val_t{MEMORY_ALIGNMENT}) std::remove_reference_t<decltype(**acc1)>[size];
+  *jrk0 = new (std::align_val_t{MEMORY_ALIGNMENT}) std::remove_reference_t<decltype(**jrk0)>[size];
+  *jrk1 = new (std::align_val_t{MEMORY_ALIGNMENT}) std::remove_reference_t<decltype(**jrk1)>[size];
+  *prs0 = new (std::align_val_t{MEMORY_ALIGNMENT}) std::remove_reference_t<decltype(**prs0)>[size];
+  *prs1 = new (std::align_val_t{MEMORY_ALIGNMENT}) std::remove_reference_t<decltype(**prs1)>[size];
+  *nxt0 = new (std::align_val_t{MEMORY_ALIGNMENT}) std::remove_reference_t<decltype(**nxt0)>[size];
+  *nxt1 = new (std::align_val_t{MEMORY_ALIGNMENT}) std::remove_reference_t<decltype(**nxt1)>[size];
+  *idx0 = new (std::align_val_t{MEMORY_ALIGNMENT}) std::remove_reference_t<decltype(**idx0)>[size];
+  *idx1 = new (std::align_val_t{MEMORY_ALIGNMENT}) std::remove_reference_t<decltype(**idx1)>[size];
+  *tag = new (std::align_val_t{MEMORY_ALIGNMENT}) std::remove_reference_t<decltype(**tag)>[size];
 
   // initialize arrays (for safety of massless particles and first touch)
-  constexpr type::position p_zero = {AS_FLT_POS(0.0), AS_FLT_POS(0.0), AS_FLT_POS(0.0), AS_FLT_POS(0.0)};
-  constexpr type::velocity v_zero = {AS_FLT_VEL(0.0), AS_FLT_VEL(0.0), AS_FLT_VEL(0.0)};
-  constexpr type::acceleration a_zero = {AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0)};
-  constexpr type::jerk j_zero = {AS_FLT_JRK(0.0), AS_FLT_JRK(0.0), AS_FLT_JRK(0.0)};
+  constexpr std::remove_reference_t<decltype(**pos0)> p_zero = {AS_FLT_POS(0.0), AS_FLT_POS(0.0), AS_FLT_POS(0.0), AS_FLT_POS(0.0)};
+  constexpr std::remove_reference_t<decltype(**vel0)> v_zero = {AS_FLT_VEL(0.0), AS_FLT_VEL(0.0), AS_FLT_VEL(0.0)};
+  constexpr std::remove_reference_t<decltype(**acc0)> a_zero = {AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0)};
+  constexpr std::remove_reference_t<decltype(**jrk0)> j_zero = {AS_FLT_JRK(0.0), AS_FLT_JRK(0.0), AS_FLT_JRK(0.0)};
 #pragma omp parallel for
-  for (size_t ii = 0U; ii < size; ii++) {
-    pos0[ii] = p_zero;
-    pos1[ii] = p_zero;
-    vel0[ii] = v_zero;
-    vel1[ii] = v_zero;
-    acc0[ii] = a_zero;
-    acc1[ii] = a_zero;
-    jrk0[ii] = j_zero;
-    jrk1[ii] = j_zero;
-    prs0[ii] = AS_FP_M(0.0);
-    prs1[ii] = AS_FP_M(0.0);
-    nxt0[ii] = std::numeric_limits<type::fp_m>::max();
-    nxt1[ii] = std::numeric_limits<type::fp_m>::max();
-    idx0[ii] = std::numeric_limits<type::int_idx>::max();
-    idx1[ii] = std::numeric_limits<type::int_idx>::max();
-    tag[ii] = std::numeric_limits<type::int_idx>::max();
+  for (std::remove_const_t<decltype(size)> ii = 0U; ii < size; ii++) {
+    (*pos0)[ii] = p_zero;
+    (*pos1)[ii] = p_zero;
+    (*vel0)[ii] = v_zero;
+    (*vel1)[ii] = v_zero;
+    (*acc0)[ii] = a_zero;
+    (*acc1)[ii] = a_zero;
+    (*jrk0)[ii] = j_zero;
+    (*jrk1)[ii] = j_zero;
+    (*prs0)[ii] = AS_FP_M(0.0);
+    (*prs1)[ii] = AS_FP_M(0.0);
+    (*nxt0)[ii] = std::numeric_limits<std::remove_reference_t<decltype(**nxt0)>>::max();
+    (*nxt1)[ii] = std::numeric_limits<std::remove_reference_t<decltype(**nxt1)>>::max();
+    (*idx0)[ii] = std::numeric_limits<std::remove_reference_t<decltype(**idx0)>>::max();
+    (*idx1)[ii] = std::numeric_limits<std::remove_reference_t<decltype(**idx1)>>::max();
+    (*tag)[ii] = std::numeric_limits<std::remove_reference_t<decltype(**tag)>>::max();
   }
 
   // assign SoA
-  body0.pos = pos0.get();
-  body0.vel = vel0.get();
-  body0.acc = acc0.get();
-  body0.jrk = jrk0.get();
-  body0.prs = prs0.get();
-  body0.nxt = nxt0.get();
-  body0.idx = idx0.get();
-  body1.pos = pos1.get();
-  body1.vel = vel1.get();
-  body1.acc = acc1.get();
-  body1.jrk = jrk1.get();
-  body1.prs = prs1.get();
-  body1.nxt = nxt1.get();
-  body1.idx = idx1.get();
+  body0.pos = *pos0;
+  body0.vel = *vel0;
+  body0.acc = *acc0;
+  body0.jrk = *jrk0;
+  body0.prs = *prs0;
+  body0.nxt = *nxt0;
+  body0.idx = *idx0;
+  body1.pos = *pos1;
+  body1.vel = *vel1;
+  body1.acc = *acc1;
+  body1.jrk = *jrk1;
+  body1.prs = *prs1;
+  body1.nxt = *nxt1;
+  body1.idx = *idx1;
 }
 
 ///
@@ -551,24 +551,24 @@ static inline void allocate_Nbody_particles(
 /// @param[out] tag tag to sort N-body particles
 ///
 static inline void release_Nbody_particles(
-    std::unique_ptr<type::position[]> &pos0, std::unique_ptr<type::velocity[]> &vel0, std::unique_ptr<type::acceleration[]> &acc0, std::unique_ptr<type::jerk[]> &jrk0, std::unique_ptr<type::fp_m[]> &prs0, std::unique_ptr<type::fp_m[]> &nxt0, std::unique_ptr<type::int_idx[]> &idx0,
-    std::unique_ptr<type::position[]> &pos1, std::unique_ptr<type::velocity[]> &vel1, std::unique_ptr<type::acceleration[]> &acc1, std::unique_ptr<type::jerk[]> &jrk1, std::unique_ptr<type::fp_m[]> &prs1, std::unique_ptr<type::fp_m[]> &nxt1, std::unique_ptr<type::int_idx[]> &idx1,
-    std::unique_ptr<type::int_idx[]> &tag) {
-  pos0.reset();
-  pos1.reset();
-  vel0.reset();
-  vel1.reset();
-  acc0.reset();
-  acc1.reset();
-  jrk0.reset();
-  jrk1.reset();
-  prs0.reset();
-  prs1.reset();
-  nxt0.reset();
-  nxt1.reset();
-  idx0.reset();
-  idx1.reset();
-  tag.reset();
+    type::position *pos0, type::velocity *vel0, type::acceleration *acc0, type::jerk *jrk0, type::fp_m *prs0, type::fp_m *nxt0, type::int_idx *idx0,
+    type::position *pos1, type::velocity *vel1, type::acceleration *acc1, type::jerk *jrk1, type::fp_m *prs1, type::fp_m *nxt1, type::int_idx *idx1,
+    type::int_idx *tag) {
+  delete[] pos0;
+  delete[] pos1;
+  delete[] vel0;
+  delete[] vel1;
+  delete[] acc0;
+  delete[] acc1;
+  delete[] jrk0;
+  delete[] jrk1;
+  delete[] prs0;
+  delete[] prs1;
+  delete[] nxt0;
+  delete[] nxt1;
+  delete[] idx0;
+  delete[] idx1;
+  delete[] tag;
 }
 
 auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *const *const argv) -> int32_t {
@@ -612,36 +612,36 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
 
 #ifdef BENCHMARK_MODE
   const auto num_logbin = std::log2(num_max / num_min) / static_cast<double>((num_bin > 1) ? (num_bin - 1) : (num_bin));
-  for (int32_t ii = 0; ii < num_bin; ii++) {
+  for (std::remove_const_t<decltype(num_bin)> ii = 0; ii < num_bin; ii++) {
     const auto num = static_cast<type::int_idx>(std::nearbyint(num_min * std::exp2(static_cast<double>(ii) * num_logbin)));
 #endif  // BENCHMARK_MODE
 
     // memory allocation
-    alignas(MEMORY_ALIGNMENT) std::unique_ptr<type::position[]> pos0;
-    alignas(MEMORY_ALIGNMENT) std::unique_ptr<type::position[]> pos1;
-    alignas(MEMORY_ALIGNMENT) std::unique_ptr<type::velocity[]> vel0;
-    alignas(MEMORY_ALIGNMENT) std::unique_ptr<type::velocity[]> vel1;
-    alignas(MEMORY_ALIGNMENT) std::unique_ptr<type::acceleration[]> acc0;
-    alignas(MEMORY_ALIGNMENT) std::unique_ptr<type::acceleration[]> acc1;
-    alignas(MEMORY_ALIGNMENT) std::unique_ptr<type::jerk[]> jerk0;
-    alignas(MEMORY_ALIGNMENT) std::unique_ptr<type::jerk[]> jerk1;
-    alignas(MEMORY_ALIGNMENT) std::unique_ptr<type::fp_m[]> pres0;
-    alignas(MEMORY_ALIGNMENT) std::unique_ptr<type::fp_m[]> pres1;
-    alignas(MEMORY_ALIGNMENT) std::unique_ptr<type::fp_m[]> next0;
-    alignas(MEMORY_ALIGNMENT) std::unique_ptr<type::fp_m[]> next1;
-    alignas(MEMORY_ALIGNMENT) std::unique_ptr<type::int_idx[]> id0;
-    alignas(MEMORY_ALIGNMENT) std::unique_ptr<type::int_idx[]> id1;
-    alignas(MEMORY_ALIGNMENT) std::unique_ptr<type::int_idx[]> tag;
-    auto body0 = type::nbody();
-    auto body1 = type::nbody();
+    type::position *pos0 = nullptr;
+    type::position *pos1 = nullptr;
+    type::velocity *vel0 = nullptr;
+    type::velocity *vel1 = nullptr;
+    type::acceleration *acc0 = nullptr;
+    type::acceleration *acc1 = nullptr;
+    type::jerk *jerk0 = nullptr;
+    type::jerk *jerk1 = nullptr;
+    type::fp_m *pres0 = nullptr;
+    type::fp_m *pres1 = nullptr;
+    type::fp_m *next0 = nullptr;
+    type::fp_m *next1 = nullptr;
+    type::int_idx *id0 = nullptr;
+    type::int_idx *id1 = nullptr;
+    type::int_idx *tag = nullptr;
+    auto body0 = type::nbody{};
+    auto body1 = type::nbody{};
     allocate_Nbody_particles(
-        body0, pos0, vel0, acc0, jerk0, pres0, next0, id0,
-        body1, pos1, vel1, acc1, jerk1, pres1, next1, id1, tag, num);
+        body0, &pos0, &vel0, &acc0, &jerk0, &pres0, &next0, &id0,
+        body1, &pos1, &vel1, &acc1, &jerk1, &pres1, &next1, &id1, &tag, num);
 
     // generate initial-condition
     init::set_uniform_sphere(num, body0.pos, body0.vel, M_tot, rad, virial, CAST2VEL(newton));
 #pragma omp parallel for
-    for (type::int_idx ii = 0U; ii < num; ii++) {
+    for (std::remove_const_t<decltype(num)> ii = 0U; ii < num; ii++) {
       body0.idx[ii] = ii;
     }
 
@@ -663,7 +663,7 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
     while (present < snp_fin) {
       step++;
 
-      sort_particles(num, tag.get(), &body0, &body1);
+      sort_particles(num, tag, &body0, &body1);
       std::tie(Ni, time_from_snapshot) = set_time_step(num, body0, time_from_snapshot, snapshot_interval);
       if (time_from_snapshot >= snapshot_interval) {
         present++;
@@ -705,13 +705,13 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
   const auto minimum_elapsed = cfg.get_minimum_elapsed_time();
   while (elapsed < minimum_elapsed) {
     // predict the iteration counts
-    constexpr double booster = 1.25;  ///< additional safety-parameter to reduce rejection rate
+    constexpr double booster = 1.25;  // additional safety-parameter to reduce rejection rate
     iter = static_cast<int32_t>(std::exp2(std::ceil(std::log2(static_cast<double>(iter) * booster * minimum_elapsed / elapsed))));
 
     // re-execute the benchmark
     timer.clear();
     timer.start();
-    for (int32_t loop = 0; loop < iter; loop++) {
+    for (decltype(iter) loop = 0; loop < iter; loop++) {
       calc_acc(num, body0.pos, body0.vel, body0.acc, body0.jrk, num, body0.pos, body0.vel, eps2);
     }
     timer.stop();
