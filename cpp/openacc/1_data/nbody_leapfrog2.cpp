@@ -349,7 +349,7 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
   while (elapsed < minimum_elapsed) {
     // predict the iteration counts
     constexpr double booster = 1.25;  // additional safety-parameter to reduce rejection rate
-    iter = static_cast<int32_t>(std::exp2(std::ceil(std::log2(static_cast<double>(iter) * booster * minimum_elapsed / elapsed))));
+    iter = static_cast<decltype(iter)>(std::exp2(std::ceil(std::log2(static_cast<double>(iter) * booster * minimum_elapsed / elapsed))));
 
     // re-execute the benchmark
     timer.clear();
