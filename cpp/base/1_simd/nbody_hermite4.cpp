@@ -85,7 +85,7 @@ static inline void calc_acc(
         const auto dvx = vj.x - vi.x;
         const auto dvy = vj.y - vi.y;
         const auto dvz = vj.z - vi.z;
-        const auto bet = AS_FLT_JRK(-3.0) * (dx * dvx + dy * dvy + dz * dvz) * CAST2JRK(r2_inv);  ///< 3 * beta
+        const auto bet = AS_FLT_JRK(-3.0) * (dx * dvx + dy * dvy + dz * dvz) * CAST2JRK(r2_inv);  // 3 * beta
         // jerk accumulation
         ji.x += alp * (dvx + bet * dx);
         ji.y += alp * (dvy + bet * dy);

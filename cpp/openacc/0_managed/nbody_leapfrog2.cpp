@@ -10,14 +10,14 @@
 
 #include <unistd.h>
 
-#include <boost/filesystem.hpp>                ///< boost::filesystem
-#include <boost/math/constants/constants.hpp>  ///< boost::math::constants::two_pi
-#include <boost/program_options.hpp>           ///< boost::program_options
-#include <cmath>                               ///< std::fma
-#include <cstdint>                             ///< int32_t
-#include <iostream>
-#include <memory>
-#include <string>
+#include <boost/filesystem.hpp>                // boost::filesystem
+#include <boost/math/constants/constants.hpp>  // boost::math::constants::two_pi
+#include <boost/program_options.hpp>           // boost::program_options
+#include <cmath>                               // std::fma
+#include <cstdint>                             // int32_t
+#include <iostream>                            // std::cout
+#include <string>                              // std::string
+#include <type_traits>                         // std::remove_const_t
 
 #include "common/cfg.hpp"
 #include "common/conservatives.hpp"
@@ -28,7 +28,7 @@
 #include "util/macro.hpp"
 #include "util/timer.hpp"
 
-constexpr type::flt_acc newton = AS_FLT_ACC(1.0);  ///< gravitational constant
+constexpr type::flt_acc newton = AS_FLT_ACC(1.0);  // gravitational constant
 
 #ifndef NTHREADS
 constexpr type::int_idx NTHREADS = 1024U;
@@ -48,13 +48,13 @@ constexpr type::int_idx NTHREADS = 1024U;
 static inline void calc_acc(const type::int_idx Ni, const type::position *const ipos, type::acceleration *__restrict iacc, const type::int_idx Nj, const type::position *const jpos, const type::flt_pos eps2) {
 #pragma acc kernels
 #pragma acc loop independent vector(NTHREADS)
-  for (type::int_idx ii = 0U; ii < Ni; ii++) {
+  for (std::remove_const_t<decltype(Ni)> ii = 0U; ii < Ni; ii++) {
     // initialization
     const auto pi = ipos[ii];
-    type::acceleration ai = {AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0)};
+    std::remove_reference_t<decltype(*iacc)> ai = {AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0)};
 
     // force evaluation
-    for (type::int_idx jj = 0U; jj < Nj; jj++) {
+    for (std::remove_const_t<decltype(Nj)> jj = 0U; jj < Nj; jj++) {
       // load j-particle
       const auto pj = jpos[jj];
 
@@ -98,7 +98,7 @@ static inline void trim_acc(const type::int_idx Ni, type::acceleration *__restri
 ) {
 #pragma acc kernels
 #pragma acc loop independent
-  for (type::int_idx ii = 0U; ii < Ni; ii++) {
+  for (std::remove_const_t<decltype(Ni)> ii = 0U; ii < Ni; ii++) {
     // initialization
     auto ai = acc[ii];
 
@@ -125,7 +125,7 @@ static inline void trim_acc(const type::int_idx Ni, type::acceleration *__restri
 static inline void kick(const type::int_idx num, type::velocity *__restrict vel, const type::acceleration *const acc, const type::flt_vel dt) {
 #pragma acc kernels
 #pragma acc loop independent
-  for (type::int_idx ii = 0U; ii < num; ii++) {
+  for (std::remove_const_t<decltype(num)> ii = 0U; ii < num; ii++) {
     // initialization
     auto vi = vel[ii];
     const auto ai = acc[ii];
@@ -149,7 +149,7 @@ static inline void kick(const type::int_idx num, type::velocity *__restrict vel,
 static inline void drift(const type::int_idx num, type::position *__restrict pos, const type::velocity *const vel, const type::flt_pos dt) {
 #pragma acc kernels
 #pragma acc loop independent
-  for (type::int_idx ii = 0U; ii < num; ii++) {
+  for (std::remove_const_t<decltype(num)> ii = 0U; ii < num; ii++) {
     // initialization
     auto pi = pos[ii];
     const auto vi = vel[ii];
@@ -175,7 +175,7 @@ static inline void kick_backward_half(const type::int_idx num, const type::veloc
   const auto dt_2 = AS_FLT_VEL(0.5) * dt;
 #pragma acc kernels
 #pragma acc loop independent
-  for (type::int_idx ii = 0U; ii < num; ii++) {
+  for (std::remove_const_t<decltype(num)> ii = 0U; ii < num; ii++) {
     // initialization
     auto vi = vel_src[ii];
     const auto ai = acc[ii];
@@ -198,23 +198,23 @@ static inline void kick_backward_half(const type::int_idx num, const type::veloc
 /// @param[out] acc acceleration of N-body particles
 /// @param[in] num number of N-body particles
 ///
-static inline void allocate_Nbody_particles(std::unique_ptr<type::position[]> &pos, std::unique_ptr<type::velocity[]> &vel, std::unique_ptr<type::velocity[]> &vel_tmp, std::unique_ptr<type::acceleration[]> &acc, const type::int_idx num) {
+static inline void allocate_Nbody_particles(type::position **pos, type::velocity **vel, type::velocity **vel_tmp, type::acceleration **acc, const type::int_idx num) {
   const auto size = static_cast<size_t>(num);
-  pos = std::make_unique<type::position[]>(size);
-  vel = std::make_unique<type::velocity[]>(size);
-  vel_tmp = std::make_unique<type::velocity[]>(size);
-  acc = std::make_unique<type::acceleration[]>(size);
+  *pos = new (std::align_val_t{MEMORY_ALIGNMENT}) std::remove_reference_t<decltype(**pos)>[size];
+  *vel = new (std::align_val_t{MEMORY_ALIGNMENT}) std::remove_reference_t<decltype(**vel)>[size];
+  *vel_tmp = new (std::align_val_t{MEMORY_ALIGNMENT}) std::remove_reference_t<decltype(**vel_tmp)>[size];
+  *acc = new (std::align_val_t{MEMORY_ALIGNMENT}) std::remove_reference_t<decltype(**acc)>[size];
 
   // zero-clear arrays (for safety of massless particles)
-  constexpr type::position p_zero = {AS_FLT_POS(0.0), AS_FLT_POS(0.0), AS_FLT_POS(0.0), AS_FLT_POS(0.0)};
-  constexpr type::velocity v_zero = {AS_FLT_VEL(0.0), AS_FLT_VEL(0.0), AS_FLT_VEL(0.0)};
-  constexpr type::acceleration a_zero = {AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0)};
+  constexpr std::remove_reference_t<decltype(**pos)> p_zero = {AS_FLT_POS(0.0), AS_FLT_POS(0.0), AS_FLT_POS(0.0), AS_FLT_POS(0.0)};
+  constexpr std::remove_reference_t<decltype(**vel)> v_zero = {AS_FLT_VEL(0.0), AS_FLT_VEL(0.0), AS_FLT_VEL(0.0)};
+  constexpr std::remove_reference_t<decltype(**acc)> a_zero = {AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0)};
 #pragma omp parallel for
-  for (size_t ii = 0U; ii < size; ii++) {
-    pos[ii] = p_zero;
-    vel[ii] = v_zero;
-    vel_tmp[ii] = v_zero;
-    acc[ii] = a_zero;
+  for (std::remove_const_t<decltype(size)> ii = 0U; ii < size; ii++) {
+    (*pos)[ii] = p_zero;
+    (*vel)[ii] = v_zero;
+    (*vel_tmp)[ii] = v_zero;
+    (*acc)[ii] = a_zero;
   }
 }
 
@@ -226,11 +226,11 @@ static inline void allocate_Nbody_particles(std::unique_ptr<type::position[]> &p
 /// @param[out] vel_tmp tentative array for velocity of N-body particles
 /// @param[out] acc acceleration of N-body particles
 ///
-static inline void release_Nbody_particles(std::unique_ptr<type::position[]> &pos, std::unique_ptr<type::velocity[]> &vel, std::unique_ptr<type::velocity[]> &vel_tmp, std::unique_ptr<type::acceleration[]> &acc) {
-  pos.reset();
-  vel.reset();
-  vel_tmp.reset();
-  acc.reset();
+static inline void release_Nbody_particles(type::position *pos, type::velocity *vel, type::velocity *vel_tmp, type::acceleration *acc) {
+  delete[] pos;
+  delete[] vel;
+  delete[] vel_tmp;
+  delete[] acc;
 }
 
 auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *const *const argv) -> int32_t {
@@ -274,34 +274,34 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
 
 #ifdef BENCHMARK_MODE
   const auto num_logbin = std::log2(num_max / num_min) / static_cast<double>((num_bin > 1) ? (num_bin - 1) : (num_bin));
-  for (int32_t ii = 0; ii < num_bin; ii++) {
+  for (std::remove_const_t<decltype(num_bin)> ii = 0; ii < num_bin; ii++) {
     const auto num = static_cast<type::int_idx>(std::nearbyint(num_min * std::exp2(static_cast<double>(ii) * num_logbin)));
 #endif  // BENCHMARK_MODE
 
     // memory allocation
-    alignas(MEMORY_ALIGNMENT) std::unique_ptr<type::position[]> pos;
-    alignas(MEMORY_ALIGNMENT) std::unique_ptr<type::velocity[]> vel;
-    alignas(MEMORY_ALIGNMENT) std::unique_ptr<type::velocity[]> vel_tmp;
-    alignas(MEMORY_ALIGNMENT) std::unique_ptr<type::acceleration[]> acc;
-    allocate_Nbody_particles(pos, vel, vel_tmp, acc, num);
+    type::position *pos = nullptr;
+    type::velocity *vel = nullptr;
+    type::velocity *vel_tmp = nullptr;
+    type::acceleration *acc = nullptr;
+    allocate_Nbody_particles(&pos, &vel, &vel_tmp, &acc, num);
 
     // generate initial-condition
-    init::set_uniform_sphere(num, pos.get(), vel.get(), M_tot, rad, virial, CAST2VEL(newton));
+    init::set_uniform_sphere(num, pos, vel, M_tot, rad, virial, CAST2VEL(newton));
 
 #ifndef BENCHMARK_MODE
     // write the first snapshot
-    calc_acc(num, pos.get(), acc.get(), num, pos.get(), eps2);
-    trim_acc(num, acc.get()
+    calc_acc(num, pos, acc, num, pos, eps2);
+    trim_acc(num, acc
 #ifdef CALCULATE_POTENTIAL
-                      ,
-             pos.get(), eps_inv
+             ,
+             pos, eps_inv
 #endif  // CALCULATE_POTENTIAL
     );
     auto error = conservatives();
-    io::write_snapshot(num, pos.get(), vel.get(), acc.get(), file.c_str(), present, time, error);
+    io::write_snapshot(num, pos, vel, acc, file.c_str(), present, time, error);
 
     // half-step integration for velocity
-    kick(num, vel.get(), acc.get(), AS_FP_M(0.5) * dt);
+    kick(num, vel, acc, AS_FP_M(0.5) * dt);
 
     while (present < snp_fin) {
       step++;
@@ -312,30 +312,30 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
       DEBUG_PRINT(std::cout, "t = " << time + time_from_snapshot << ", step = " << step)
 
       // orbit integration (2nd-order leapfrog scheme)
-      drift(num, pos.get(), vel.get(), dt);
-      calc_acc(num, pos.get(), acc.get(), num, pos.get(), eps2);
-      trim_acc(num, acc.get()
+      drift(num, pos, vel, dt);
+      calc_acc(num, pos, acc, num, pos, eps2);
+      trim_acc(num, acc
 #ifdef CALCULATE_POTENTIAL
-                        ,
-               pos.get(), eps_inv
+               ,
+               pos, eps_inv
 #endif  // CALCULATE_POTENTIAL
       );
-      kick(num, vel.get(), acc.get(), dt);
+      kick(num, vel, acc, dt);
 
       // write snapshot
       if (present > previous) {
         previous = present;
         time_from_snapshot = AS_FP_M(0.0);
         time += snapshot_interval;
-        kick_backward_half(num, vel.get(), acc.get(), vel_tmp.get(), dt);
-        io::write_snapshot(num, pos.get(), vel_tmp.get(), acc.get(), file.c_str(), present, time, error);
+        kick_backward_half(num, vel, acc, vel_tmp, dt);
+        io::write_snapshot(num, pos, vel_tmp, acc, file.c_str(), present, time, error);
       }
     }
 #else   // BENCHMARK_MODE
   // launch benchmark
   auto timer = util::timer();
   timer.start();
-  calc_acc(num, pos.get(), acc.get(), num, pos.get(), eps2);
+  calc_acc(num, pos, acc, num, pos, eps2);
   timer.stop();
   auto elapsed = timer.get_elapsed_wall();
   int32_t iter = 1;
@@ -344,14 +344,14 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
   const auto minimum_elapsed = cfg.get_minimum_elapsed_time();
   while (elapsed < minimum_elapsed) {
     // predict the iteration counts
-    constexpr double booster = 1.25;  ///< additional safety-parameter to reduce rejection rate
+    constexpr double booster = 1.25;  // additional safety-parameter to reduce rejection rate
     iter = static_cast<int32_t>(std::exp2(std::ceil(std::log2(static_cast<double>(iter) * booster * minimum_elapsed / elapsed))));
 
     // re-execute the benchmark
     timer.clear();
     timer.start();
-    for (int32_t loop = 0; loop < iter; loop++) {
-      calc_acc(num, pos.get(), acc.get(), num, pos.get(), eps2);
+    for (decltype(iter) loop = 0; loop < iter; loop++) {
+      calc_acc(num, pos, acc, num, pos, eps2);
     }
     timer.stop();
     elapsed = timer.get_elapsed_wall();
