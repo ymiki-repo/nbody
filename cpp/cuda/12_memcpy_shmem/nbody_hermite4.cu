@@ -104,8 +104,8 @@ __global__ void calc_acc_device(
   std::remove_reference_t<decltype(*iacc)> ai = {AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0)};
   std::remove_reference_t<decltype(*ijrk)> ji = {AS_FLT_JRK(0.0), AS_FLT_JRK(0.0), AS_FLT_JRK(0.0)};
 
-  auto *jpos_shmem = (std::remove_reference_t<std::remove_const_t<decltype(*jpos)>> *)dynamic_shmem;
-  auto *jvel_shmem = (std::remove_reference_t<std::remove_const_t<decltype(*jvel)>> *)&jpos_shmem[NTHREADS];
+  auto *jpos_shmem = (std::remove_const_t<std::remove_reference_t<decltype(*jpos)>> *)dynamic_shmem;
+  auto *jvel_shmem = (std::remove_const_t<std::remove_reference_t<decltype(*jvel)>> *)&jpos_shmem[NTHREADS];
 
   // force evaluation
   for (std::remove_const_t<decltype(Nj)> jh = 0U; jh < Nj; jh += NTHREADS) {
@@ -287,10 +287,10 @@ __global__ void guess_initial_dt_device(
   auto cy = AS_FP_M(0.0);
   auto cz = AS_FP_M(0.0);
 
-  auto *jpos_shmem = (std::remove_reference_t<std::remove_const_t<decltype(*jpos)>> *)dynamic_shmem;
-  auto *jvel_shmem = (std::remove_reference_t<std::remove_const_t<decltype(*jvel)>> *)&jpos_shmem[NTHREADS_2];
-  auto *jacc_shmem = (std::remove_reference_t<std::remove_const_t<decltype(*jacc)>> *)&jvel_shmem[NTHREADS_2];
-  auto *jjrk_shmem = (std::remove_reference_t<std::remove_const_t<decltype(*jjrk)>> *)&jacc_shmem[NTHREADS_2];
+  auto *jpos_shmem = (std::remove_const_t<std::remove_reference_t<decltype(*jpos)>> *)dynamic_shmem;
+  auto *jvel_shmem = (std::remove_const_t<std::remove_reference_t<decltype(*jvel)>> *)&jpos_shmem[NTHREADS_2];
+  auto *jacc_shmem = (std::remove_const_t<std::remove_reference_t<decltype(*jacc)>> *)&jvel_shmem[NTHREADS_2];
+  auto *jjrk_shmem = (std::remove_const_t<std::remove_reference_t<decltype(*jjrk)>> *)&jacc_shmem[NTHREADS_2];
 
   // force evaluation
   for (std::remove_const_t<decltype(Nj)> jh = 0U; jh < Nj; jh += NTHREADS_2) {

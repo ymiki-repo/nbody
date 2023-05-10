@@ -325,9 +325,9 @@ static inline void allocate_Nbody_particles(
   cudaMalloc((void **)acc_dev, size * sizeof(std::remove_reference_t<decltype(**acc_dev)>));
 
   // zero-clear arrays (for safety of massless particles)
-  constexpr std::remove_reference_t<decltype(**pos)> p_zero = {AS_FLT_POS(0.0), AS_FLT_POS(0.0), AS_FLT_POS(0.0), AS_FLT_POS(0.0)};
-  constexpr std::remove_reference_t<decltype(**vel)> v_zero = {AS_FLT_VEL(0.0), AS_FLT_VEL(0.0), AS_FLT_VEL(0.0)};
-  constexpr std::remove_reference_t<decltype(**acc)> a_zero = {AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0)};
+  constexpr std::remove_reference_t<decltype(**pos_hst)> p_zero = {AS_FLT_POS(0.0), AS_FLT_POS(0.0), AS_FLT_POS(0.0), AS_FLT_POS(0.0)};
+  constexpr std::remove_reference_t<decltype(**vel_hst)> v_zero = {AS_FLT_VEL(0.0), AS_FLT_VEL(0.0), AS_FLT_VEL(0.0)};
+  constexpr std::remove_reference_t<decltype(**acc_hst)> a_zero = {AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0), AS_FLT_ACC(0.0)};
 #pragma omp parallel for
   for (std::remove_const_t<decltype(size)> ii = 0U; ii < size; ii++) {
     (*pos_hst)[ii] = p_zero;
