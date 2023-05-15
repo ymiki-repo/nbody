@@ -23,14 +23,19 @@
 #define PRAGMA_ACC(...) PRAGMA(acc __VA_ARGS__)
 
 ///
-/// @brief offload the specified loop as thread-blocks with n threads
+/// @brief add arguments into _Pragma("acc kernels") _Pragma("acc loop independent")
 ///
-#define PRAGMA_ACC_OFFLOAD_THREAD(n) PRAGMA_ACC(kernels) PRAGMA_ACC(loop independent vector(n))
+#define PRAGMA_ACC_KERNELS_LOOP(...) PRAGMA_ACC(kernels) PRAGMA_ACC(loop independent __VA_ARGS__)
 
 ///
-/// fff@brief offload the specified loop as thread-blocks
+/// @brief offload the specified loop as thread-blocks with n threads
 ///
-#define PRAGMA_ACC_OFFLOAD PRAGMA_ACC(kernels) PRAGMA_ACC(loop independent)
+#define PRAGMA_ACC_OFFLOAD_THREAD(n) PRAGMA_ACC_KERNELS_LOOP(vector(n))
+
+///
+/// @brief offload the specified loop as thread-blocks
+///
+#define PRAGMA_ACC_OFFLOAD PRAGMA_ACC_KERNELS_LOOP()
 
 ///
 /// @brief allocate device memory
@@ -40,7 +45,7 @@
 ///
 /// @brief release device memory
 ///
-#define PRAGMA_ACC_FREE(...) PRAGMA_ACC(exit data delete(__VA_ARGS__))
+#define PRAGMA_ACC_FREE(...) PRAGMA_ACC(exit data delete (__VA_ARGS__))
 
 ///
 /// @brief memcpy from device to host

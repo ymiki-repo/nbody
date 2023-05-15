@@ -10,6 +10,8 @@
 #ifndef PRAGMA_GPU_OMP_HPP
 #define PRAGMA_GPU_OMP_HPP
 
+#include "pragma_omp.hpp"
+
 // nvc++ (_OPENMP 202011) has #pragma omp target loop
 // amdclang++ (_OPENMP 201811) does not have #pragma omp target loop
 #if _OPENMP >= 202011
@@ -18,27 +20,20 @@
 #define OMP_TARGET_HAS_LOOP_DIRECTIVE false
 #endif
 
-#ifndef PRAGMA
-///
-/// @brief input arguments into _Pragma
-///
-#define PRAGMA(...) _Pragma(#__VA_ARGS__)
-#endif  // PRAGMA
-
-///
-/// @brief add arguments into _Pragma("omp")
-///
-#define PRAGMA_OMP(...) PRAGMA(omp __VA_ARGS__)
-
 ///
 /// @brief add arguments into _Pragma("omp target")
 ///
 #define PRAGMA_OMP_TARGET(...) PRAGMA_OMP(target __VA_ARGS__)
 
 ///
+/// @brief add arguments into _Pragma("omp target teams distribute parallel for simd")
+///
+#define PRAGMA_OMP_TARGET_TEAMS_DISTRIBUTE(...) PRAGMA_OMP_TARGET(teams distribute parallel for simd __VA_ARGS__)
+
+///
 /// @brief offload the specified loop as thread-blocks with n threads
 ///
-#define PRAGMA_OMP_TARGET_OFFLOAD_THREAD(n) PRAGMA_OMP_TARGET(teams distribute parallel for simd thread_limit(n))
+#define PRAGMA_OMP_TARGET_OFFLOAD_THREAD(n) PRAGMA_OMP_TARGET_TEAMS_DISTRIBUTE(thread_limit(n))
 
 ///
 /// @brief offload the specified loop as thread-blocks
@@ -46,7 +41,7 @@
 #if OMP_TARGET_HAS_LOOP_DIRECTIVE
 #define PRAGMA_OMP_TARGET_OFFLOAD PRAGMA_OMP_TARGET(teams loop)
 #else  // OMP_TARGET_HAS_LOOP_DIRECTIVE
-#define PRAGMA_OMP_TARGET_OFFLOAD PRAGMA_OMP_TARGET(teams distribute parallel for simd)
+#define PRAGMA_OMP_TARGET_OFFLOAD PRAGMA_OMP_TARGET_TEAMS_DISTRIBUTE()
 #endif  // OMP_TARGET_HAS_LOOP_DIRECTIVE
 
 ///
