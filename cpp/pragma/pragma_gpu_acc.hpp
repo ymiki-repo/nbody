@@ -13,7 +13,7 @@
 ///
 /// @brief offload the specified loop as thread-blocks with n threads
 ///
-#define PRAGMA_ACC_KERNELS_LOOP_VECTOR(n)       \
+#define PRAGMA_ACC_OFFLOAD_THREAD(n)            \
   {                                             \
     _Pragma(acc kernels)                        \
         _Pragma(acc loop independent vector(n)) \
@@ -22,7 +22,7 @@
 ///
 /// @brief offload the specified loop as thread-blocks
 ///
-#define PRAGMA_ACC_KERNELS_LOOP       \
+#define PRAGMA_ACC_OFFLOAD            \
   {                                   \
     _Pragma(acc kernels)              \
         _Pragma(acc loop independent) \

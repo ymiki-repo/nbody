@@ -17,12 +17,12 @@
 ///
 /// @brief offload the specified loop as thread-blocks with n threads
 ///
-#define PRAGMA_GPU_OFFLOAD_THREAD(n) PRAGMA_ACC_KERNELS_LOOP_VECTOR(n)
+#define PRAGMA_GPU_OFFLOAD_THREAD(n) PRAGMA_ACC_OFFLOAD_THREAD(n)
 
 ///
 /// @brief offload the specified loop as thread-blocks
 ///
-#define PRAGMA_GPU_OFFLOAD PRAGMA_ACC_KERNELS_LOOP
+#define PRAGMA_GPU_OFFLOAD PRAGMA_ACC_OFFLOAD
 
 ///
 /// @brief allocate device memory
@@ -52,12 +52,12 @@
 ///
 /// @brief offload the specified loop as thread-blocks with n threads
 ///
-#define PRAGMA_GPU_OFFLOAD_THREAD(n) PRAGMA_OMP_TARGET_TEAMS_DISTRIBUTE_THREAD(n)
+#define PRAGMA_GPU_OFFLOAD_THREAD(n) PRAGMA_OMP_TARGET_OFFLOAD_THREAD(n)
 
 ///
 /// @brief offload the specified loop as thread-blocks
 ///
-#define PRAGMA_GPU_OFFLOAD PRAGMA_OMP_TARGET_TEAMS_LOOP
+#define PRAGMA_GPU_OFFLOAD PRAGMA_OMP_TARGET_OFFLOAD
 
 ///
 /// @brief allocate device memory

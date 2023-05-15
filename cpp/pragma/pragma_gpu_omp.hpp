@@ -21,15 +21,15 @@
 ///
 /// @brief offload the specified loop as thread-blocks with n threads
 ///
-#define PRAGMA_OMP_TARGET_TEAMS_DISTRIBUTE_THREAD(n) _Pragma(omp target teams distribute parallel for simd thread_limit(n))
+#define PRAGMA_OMP_TARGET_OFFLOAD_THREAD(n) _Pragma(omp target teams distribute parallel for simd thread_limit(n))
 
 ///
 /// @brief offload the specified loop as thread-blocks
 ///
 #if OMP_TARGET_HAS_LOOP_DIRECTIVE
-#define PRAGMA_OMP_TARGET_TEAMS_LOOP _Pragma(omp target teams loop)
+#define PRAGMA_OMP_TARGET_OFFLOAD _Pragma(omp target teams loop)
 #else  // OMP_TARGET_HAS_LOOP_DIRECTIVE
-#define PRAGMA_OMP_TARGET_TEAMS_LOOP _Pragma(omp target teams distribute parallel for simd)
+#define PRAGMA_OMP_TARGET_OFFLOAD _Pragma(omp target teams distribute parallel for simd)
 #endif  // OMP_TARGET_HAS_LOOP_DIRECTIVE
 
 ///
