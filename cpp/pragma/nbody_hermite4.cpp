@@ -24,7 +24,7 @@
 #include "common/init.hpp"
 #include "common/io.hpp"
 #include "common/type.hpp"
-#include "pragma_gpu.hpp"
+#include "pragma_offload.hpp"
 #include "util/hdf5.hpp"
 #include "util/macro.hpp"
 #include "util/timer.hpp"
@@ -54,7 +54,7 @@ constexpr type::int_idx NTHREADS = 128U;
 static inline void calc_acc(
     const type::int_idx Ni, const type::position *const ipos, const type::velocity *const ivel, type::acceleration *__restrict iacc, type::jerk *__restrict ijrk,
     const type::int_idx Nj, const type::position *const jpos, const type::velocity *const jvel, const type::flt_pos eps2) {
-  PRAGMA_GPU_OFFLOAD_THREAD(NTHREADS)
+  PRAGMA_OFFLOAD_LOOP_THREAD(NTHREADS)
   for (std::remove_const_t<decltype(Ni)> ii = 0U; ii < Ni; ii++) {
     // initialization
     const auto pi = ipos[ii];
@@ -117,7 +117,7 @@ static inline void trim_acc(const type::int_idx Ni, type::acceleration *__restri
                             const type::position *const pos, const type::flt_acc eps_inv
 #endif  // CALCULATE_POTENTIAL
 ) {
-  PRAGMA_GPU_OFFLOAD
+  PRAGMA_OFFLOAD_LOOP
   for (std::remove_const_t<decltype(Ni)> ii = 0U; ii < Ni; ii++) {
     // initialization
     auto ai = acc[ii];
@@ -161,7 +161,7 @@ static inline void guess_initial_dt(
     const type::int_idx Ni, const type::position *const ipos, const type::velocity *const ivel, const type::acceleration *const iacc, const type::jerk *const ijrk,
     const type::int_idx Nj, const type::position *const jpos, const type::velocity *const jvel, const type::acceleration *const jacc, const type::jerk *const jjrk,
     const type::flt_pos eps2, const type::fp_m eta, type::fp_m *__restrict dt) {
-  PRAGMA_GPU_OFFLOAD_THREAD(NTHREADS)
+  PRAGMA_OFFLOAD_LOOP_THREAD(NTHREADS)
   for (std::remove_const_t<decltype(Ni)> ii = 0U; ii < Ni; ii++) {
     // initialization
     const auto p_i = ipos[ii];
@@ -252,7 +252,7 @@ static inline void guess_initial_dt(
 static inline void predict(
     const type::int_idx jnum, const type::fp_m *const t_pres, const type::position *const pos0, const type::velocity *const vel0, const type::acceleration *const acc0, const type::jerk *const jrk0,
     type::position *__restrict pos1, type::velocity *__restrict vel1, const type::fp_m t_next) {
-  PRAGMA_GPU_OFFLOAD
+  PRAGMA_OFFLOAD_LOOP
   for (std::remove_const_t<decltype(jnum)> jj = 0U; jj < jnum; jj++) {
     // set time step for this particle
     const auto dt = t_next - t_pres[jj];
@@ -300,7 +300,7 @@ static inline void predict(
 static inline void correct(
     const type::int_idx inum, type::fp_m *__restrict t_pres, type::position *__restrict pos0, type::velocity *__restrict vel0, type::acceleration *__restrict acc0, type::jerk *__restrict jrk0, type::fp_m *__restrict t_next,
     const type::position *const pos1, const type::velocity *const vel1, const type::acceleration *const acc1, const type::jerk *const jrk1, const type::fp_m t1, const type::fp_m eta) {
-  PRAGMA_GPU_OFFLOAD
+  PRAGMA_OFFLOAD_LOOP
   for (std::remove_const_t<decltype(inum)> ii = 0U; ii < inum; ii++) {
     // set time step for this particle
     const auto dt = t1 - t_pres[ii];
@@ -370,16 +370,16 @@ static inline void correct(
 ///
 static inline void sort_particles(const type::int_idx num, type::int_idx *__restrict tag, type::nbody *__restrict src, type::nbody *__restrict dst) {
   // sort particle time
-  PRAGMA_GPU_MEMCPY_D2H(src->nxt [0:num])
+  PRAGMA_OFFLOAD_MEMCPY_D2H(src->nxt [0:num])
   std::iota(tag, tag + num, 0U);
   std::sort(tag, tag + num, [src](auto ii, auto jj) { return ((*src).nxt[ii] < (*src).nxt[jj]); });
 
   // sort N-body particles
 #ifndef EXEC_SMALL_FUNC_ON_HOST
-  PRAGMA_GPU_MEMCPY_H2D(tag [0:num])
-  PRAGMA_GPU_OFFLOAD
+  PRAGMA_OFFLOAD_MEMCPY_H2D(tag [0:num])
+  PRAGMA_OFFLOAD_LOOP
 #else   // EXEC_SMALL_FUNC_ON_HOST
-  PRAGMA_GPU_MEMCPY_D2H(src->pos [0:num], src->vel [0:num], src->acc [0:num], src->jrk [0:num], src->prs [0:num], src->idx [0:num])
+  PRAGMA_OFFLOAD_MEMCPY_D2H(src->pos [0:num], src->vel [0:num], src->acc [0:num], src->jrk [0:num], src->prs [0:num], src->idx [0:num])
 #endif  // EXEC_SMALL_FUNC_ON_HOST
   for (std::remove_const_t<decltype(num)> ii = 0U; ii < num; ii++) {
     const auto jj = tag[ii];
@@ -393,7 +393,7 @@ static inline void sort_particles(const type::int_idx num, type::int_idx *__rest
     (*dst).idx[ii] = (*src).idx[jj];
   }
 #ifdef EXEC_SMALL_FUNC_ON_HOST
-  PRAGMA_GPU_MEMCPY_H2D(dst->pos [0:num], dst->vel [0:num], dst->acc [0:num], dst->jrk [0:num], dst->prs [0:num], dst->nxt [0:num], dst->idx [0:num])
+  PRAGMA_OFFLOAD_MEMCPY_H2D(dst->pos [0:num], dst->vel [0:num], dst->acc [0:num], dst->jrk [0:num], dst->prs [0:num], dst->nxt [0:num], dst->idx [0:num])
 #endif  // EXEC_SMALL_FUNC_ON_HOST
 
   // swap SoAs
@@ -414,7 +414,7 @@ static inline void sort_particles(const type::int_idx num, type::int_idx *__rest
 ///
 static inline auto set_time_step(const type::int_idx num, type::nbody &body, const type::fp_m time_pres, const type::fp_m time_sync) {
   auto Ni = num;
-  PRAGMA_GPU_MEMCPY_D2H(body.nxt [0:num])
+  PRAGMA_OFFLOAD_MEMCPY_D2H(body.nxt [0:num])
   const auto time_next = std::min(time_sync, time_pres + std::exp2(std::floor(std::log2(body.nxt[0] - time_pres))));
   if (time_next < time_sync) {
     // adopt block time step
@@ -429,13 +429,13 @@ static inline auto set_time_step(const type::int_idx num, type::nbody &body, con
 
   // unify the next time within the integrated block
 #ifndef EXEC_SMALL_FUNC_ON_HOST
-  PRAGMA_GPU_OFFLOAD
+  PRAGMA_OFFLOAD_LOOP
 #endif  // EXEC_SMALL_FUNC_ON_HOST
   for (std::remove_const_t<decltype(Ni)> ii = 0U; ii < Ni; ii++) {
     body.nxt[ii] = time_next;
   }
 #ifdef EXEC_SMALL_FUNC_ON_HOST
-  PRAGMA_GPU_MEMCPY_H2D(body.nxt [0:num])
+  PRAGMA_OFFLOAD_MEMCPY_H2D(body.nxt [0:num])
 #endif  // EXEC_SMALL_FUNC_ON_HOST
 
   return (std::make_pair(Ni, time_next));
@@ -450,16 +450,16 @@ static inline auto set_time_step(const type::int_idx num, type::nbody &body, con
 ///
 static inline void reset_particle_time(const type::int_idx num, type::nbody &body, const type::fp_m snapshot_interval) {
 #ifndef EXEC_SMALL_FUNC_ON_HOST
-  PRAGMA_GPU_OFFLOAD
+  PRAGMA_OFFLOAD_LOOP
 #else   // EXEC_SMALL_FUNC_ON_HOST
-  PRAGMA_GPU_MEMCPY_D2H(body.nxt [0:num])
+  PRAGMA_OFFLOAD_MEMCPY_D2H(body.nxt [0:num])
 #endif  // EXEC_SMALL_FUNC_ON_HOST
   for (std::remove_const_t<decltype(num)> ii = 0U; ii < num; ii++) {
     body.prs[ii] = AS_FP_M(0.0);
     body.nxt[ii] -= snapshot_interval;
   }
 #ifdef EXEC_SMALL_FUNC_ON_HOST
-  PRAGMA_GPU_MEMCPY_H2D(body.prs [0:num], body.nxt [0:num])
+  PRAGMA_OFFLOAD_MEMCPY_H2D(body.prs [0:num], body.nxt [0:num])
 #endif  // EXEC_SMALL_FUNC_ON_HOST
 }
 #endif  // BENCHMARK_MODE
@@ -654,9 +654,9 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
     allocate_Nbody_particles(
         body0, &pos0, &vel0, &acc0, &jerk0, &pres0, &next0, &id0,
         body1, &pos1, &vel1, &acc1, &jerk1, &pres1, &next1, &id1, &tag, num);
-    PRAGMA_GPU_MALLOC(body0.pos [0:num], body0.vel [0:num], body0.acc [0:num], body0.jrk [0:num], body0.prs [0:num], body0.nxt [0:num], body0.idx [0:num])
-    PRAGMA_GPU_MALLOC(body1.pos [0:num], body1.vel [0:num], body1.acc [0:num], body1.jrk [0:num], body1.prs [0:num], body1.nxt [0:num], body1.idx [0:num])
-    PRAGMA_GPU_MALLOC(tag [0:num])
+    PRAGMA_OFFLOAD_MALLOC(body0.pos [0:num], body0.vel [0:num], body0.acc [0:num], body0.jrk [0:num], body0.prs [0:num], body0.nxt [0:num], body0.idx [0:num])
+    PRAGMA_OFFLOAD_MALLOC(body1.pos [0:num], body1.vel [0:num], body1.acc [0:num], body1.jrk [0:num], body1.prs [0:num], body1.nxt [0:num], body1.idx [0:num])
+    PRAGMA_OFFLOAD_MALLOC(tag [0:num])
 
     // generate initial-condition
     init::set_uniform_sphere(num, body0.pos, body0.vel, M_tot, rad, virial, CAST2VEL(newton));
@@ -664,7 +664,7 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
     for (std::remove_const_t<decltype(num)> ii = 0U; ii < num; ii++) {
       body0.idx[ii] = ii;
     }
-    PRAGMA_GPU_MEMCPY_H2D(body0.pos [0:num], body0.vel [0:num], body0.idx [0:num])
+    PRAGMA_OFFLOAD_MEMCPY_H2D(body0.pos [0:num], body0.vel [0:num], body0.idx [0:num])
 
 #ifndef BENCHMARK_MODE
     // write the first snapshot
@@ -677,7 +677,7 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
              body0.pos, eps_inv
 #endif  // CALCULATE_POTENTIAL
     );
-    PRAGMA_GPU_MEMCPY_D2H(body0.acc [0:num], body0.jrk [0:num])
+    PRAGMA_OFFLOAD_MEMCPY_D2H(body0.acc [0:num], body0.jrk [0:num])
     auto error = conservatives();
     io::write_snapshot(num, body0.pos, body0.vel, body0.acc, body0.jrk, body0.idx, file.c_str(), present, time, error);
     guess_initial_dt(num, body0.pos, body0.vel, body0.acc, body0.jrk, num, body0.pos, body0.vel, body0.acc, body0.jrk, eps2, eta, body0.nxt);
@@ -710,7 +710,7 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
         previous = present;
         time_from_snapshot = AS_FP_M(0.0);
         time += snapshot_interval;
-        PRAGMA_GPU_MEMCPY_D2H(body0.pos [0:num], body0.vel [0:num], body0.acc [0:num], body0.jrk [0:num], body0.idx [0:num])
+        PRAGMA_OFFLOAD_MEMCPY_D2H(body0.pos [0:num], body0.vel [0:num], body0.acc [0:num], body0.jrk [0:num], body0.idx [0:num])
         io::write_snapshot(num, body0.pos, body0.vel, body0.acc, body0.jrk, body0.idx, file.c_str(), present, time, error);
         reset_particle_time(num, body0, snapshot_interval);
       }
@@ -746,9 +746,9 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
 #endif  // BENCHMARK_MODE
 
     // memory deallocation
-    PRAGMA_GPU_FREE(body0.pos [0:num], body0.vel [0:num], body0.acc [0:num], body0.jrk [0:num], body0.prs [0:num], body0.nxt [0:num], body0.idx [0:num])
-    PRAGMA_GPU_FREE(body1.pos [0:num], body1.vel [0:num], body1.acc [0:num], body1.jrk [0:num], body1.prs [0:num], body1.nxt [0:num], body1.idx [0:num])
-    PRAGMA_GPU_FREE(tag [0:num])
+    PRAGMA_OFFLOAD_FREE(body0.pos [0:num], body0.vel [0:num], body0.acc [0:num], body0.jrk [0:num], body0.prs [0:num], body0.nxt [0:num], body0.idx [0:num])
+    PRAGMA_OFFLOAD_FREE(body1.pos [0:num], body1.vel [0:num], body1.acc [0:num], body1.jrk [0:num], body1.prs [0:num], body1.nxt [0:num], body1.idx [0:num])
+    PRAGMA_OFFLOAD_FREE(tag [0:num])
     release_Nbody_particles(
         pos0, vel0, acc0, jerk0, pres0, next0, id0,
         pos1, vel1, acc1, jerk1, pres1, next1, id1, tag);

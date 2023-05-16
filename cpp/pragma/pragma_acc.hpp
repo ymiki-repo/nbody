@@ -1,5 +1,5 @@
 ///
-/// @file pragma_gpu_acc.hpp
+/// @file pragma_acc.hpp
 /// @author Yohei MIKI (Information Technology Center, The University of Tokyo)
 /// @brief pragmas to use GPU by OpenACC directives
 ///
@@ -7,8 +7,8 @@
 ///
 /// The MIT License is applied to this software, see LICENSE.txt
 ///
-#ifndef PRAGMA_GPU_ACC_HPP
-#define PRAGMA_GPU_ACC_HPP
+#ifndef PRAGMA_ACC_HPP
+#define PRAGMA_ACC_HPP
 
 #ifndef PRAGMA
 ///
@@ -30,12 +30,12 @@
 ///
 /// @brief offload the specified loop as thread-blocks with n threads
 ///
-#define PRAGMA_ACC_OFFLOAD_THREAD(n) PRAGMA_ACC_KERNELS_LOOP(vector(n))
+#define PRAGMA_ACC_LOOP_THREAD(n) PRAGMA_ACC_KERNELS_LOOP(vector(n))
 
 ///
 /// @brief offload the specified loop as thread-blocks
 ///
-#define PRAGMA_ACC_OFFLOAD PRAGMA_ACC_KERNELS_LOOP()
+#define PRAGMA_ACC_LOOP PRAGMA_ACC_KERNELS_LOOP()
 
 ///
 /// @brief allocate device memory
@@ -57,4 +57,4 @@
 ///
 #define PRAGMA_ACC_MEMCPY_H2D(...) PRAGMA_ACC(update device(__VA_ARGS__))
 
-#endif  // PRAGMA_GPU_ACC_HPP
+#endif  // PRAGMA_ACC_HPP

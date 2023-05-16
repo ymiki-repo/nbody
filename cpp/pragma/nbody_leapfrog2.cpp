@@ -23,7 +23,7 @@
 #include "common/init.hpp"
 #include "common/io.hpp"
 #include "common/type.hpp"
-#include "pragma_gpu.hpp"
+#include "pragma_offload.hpp"
 #include "util/hdf5.hpp"
 #include "util/macro.hpp"
 #include "util/timer.hpp"
@@ -46,7 +46,7 @@ constexpr type::int_idx NTHREADS = 1024U;
 /// @param[in] ivel velocity of i-particles
 ///
 static inline void calc_acc(const type::int_idx Ni, const type::position *const ipos, type::acceleration *__restrict iacc, const type::int_idx Nj, const type::position *const jpos, const type::flt_pos eps2) {
-  PRAGMA_GPU_OFFLOAD_THREAD(NTHREADS)
+  PRAGMA_OFFLOAD_LOOP_THREAD(NTHREADS)
   for (std::remove_const_t<decltype(Ni)> ii = 0U; ii < Ni; ii++) {
     // initialization
     const auto pi = ipos[ii];
@@ -95,7 +95,7 @@ static inline void trim_acc(const type::int_idx Ni, type::acceleration *__restri
                             const type::position *const pos, const type::flt_acc eps_inv
 #endif  // CALCULATE_POTENTIAL
 ) {
-  PRAGMA_GPU_OFFLOAD
+  PRAGMA_OFFLOAD_LOOP
   for (std::remove_const_t<decltype(Ni)> ii = 0U; ii < Ni; ii++) {
     // initialization
     auto ai = acc[ii];
@@ -121,7 +121,7 @@ static inline void trim_acc(const type::int_idx Ni, type::acceleration *__restri
 /// @param[in] dt time step
 ///
 static inline void kick(const type::int_idx num, type::velocity *__restrict vel, const type::acceleration *const acc, const type::flt_vel dt) {
-  PRAGMA_GPU_OFFLOAD
+  PRAGMA_OFFLOAD_LOOP
   for (std::remove_const_t<decltype(num)> ii = 0U; ii < num; ii++) {
     // initialization
     auto vi = vel[ii];
@@ -144,7 +144,7 @@ static inline void kick(const type::int_idx num, type::velocity *__restrict vel,
 /// @param[in] dt time step
 ///
 static inline void drift(const type::int_idx num, type::position *__restrict pos, const type::velocity *const vel, const type::flt_pos dt) {
-  PRAGMA_GPU_OFFLOAD
+  PRAGMA_OFFLOAD_LOOP
   for (std::remove_const_t<decltype(num)> ii = 0U; ii < num; ii++) {
     // initialization
     auto pi = pos[ii];
@@ -169,7 +169,7 @@ static inline void drift(const type::int_idx num, type::position *__restrict pos
 ///
 static inline void kick_backward_half(const type::int_idx num, const type::velocity *const vel_src, const type::acceleration *const acc, type::velocity *__restrict vel, const type::flt_vel dt) {
   const auto dt_2 = AS_FLT_VEL(0.5) * dt;
-  PRAGMA_GPU_OFFLOAD
+  PRAGMA_OFFLOAD_LOOP
   for (std::remove_const_t<decltype(num)> ii = 0U; ii < num; ii++) {
     // initialization
     auto vi = vel_src[ii];
@@ -279,11 +279,11 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
     type::velocity *vel_tmp = nullptr;
     type::acceleration *acc = nullptr;
     allocate_Nbody_particles(&pos, &vel, &vel_tmp, &acc, num);
-    PRAGMA_GPU_MALLOC(pos [0:num], vel [0:num], vel_tmp [0:num], acc [0:num])
+    PRAGMA_OFFLOAD_MALLOC(pos [0:num], vel [0:num], vel_tmp [0:num], acc [0:num])
 
     // generate initial-condition
     init::set_uniform_sphere(num, pos, vel, M_tot, rad, virial, CAST2VEL(newton));
-    PRAGMA_GPU_MEMCPY_H2D(pos [0:num], vel [0:num])
+    PRAGMA_OFFLOAD_MEMCPY_H2D(pos [0:num], vel [0:num])
 
 #ifndef BENCHMARK_MODE
     // write the first snapshot
@@ -294,7 +294,7 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
              pos, eps_inv
 #endif  // CALCULATE_POTENTIAL
     );
-    PRAGMA_GPU_MEMCPY_D2H(acc [0:num])
+    PRAGMA_OFFLOAD_MEMCPY_D2H(acc [0:num])
     auto error = conservatives();
     io::write_snapshot(num, pos, vel, acc, file.c_str(), present, time, error);
 
@@ -326,7 +326,7 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
         time_from_snapshot = AS_FP_M(0.0);
         time += snapshot_interval;
         kick_backward_half(num, vel, acc, vel_tmp, dt);
-        PRAGMA_GPU_MEMCPY_D2H(pos [0:num], vel_tmp [0:num], acc [0:num])
+        PRAGMA_OFFLOAD_MEMCPY_D2H(pos [0:num], vel_tmp [0:num], acc [0:num])
         io::write_snapshot(num, pos, vel_tmp, acc, file.c_str(), present, time, error);
       }
     }
@@ -361,7 +361,7 @@ auto main([[maybe_unused]] const int32_t argc, [[maybe_unused]] const char *cons
 #endif  // BENCHMARK_MODE
 
     // memory deallocation
-    PRAGMA_GPU_FREE(pos [0:num], vel [0:num], vel_tmp [0:num], acc [0:num])
+    PRAGMA_OFFLOAD_FREE(pos [0:num], vel [0:num], vel_tmp [0:num], acc [0:num])
     release_Nbody_particles(pos, vel, vel_tmp, acc);
 
 #ifdef BENCHMARK_MODE
