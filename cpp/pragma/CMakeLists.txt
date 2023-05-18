@@ -29,6 +29,7 @@ message(STATUS "USE_OPENMP_AS_DIRECTIVE is ${USE_OPENMP_AS_DIRECTIVE}")
 # apply common settings
 include(${USER_MODULE_PATH}/apply_common_settings.cmake)
 target_compile_definitions(${PROJECT_NAME} PUBLIC
+    $<$<BOOL:${GPU_EXECUTION}>:USE_PRAGMA_OFFLOAD>
     $<$<AND:$<BOOL:${GPU_EXECUTION}>,$<BOOL:${OVERWRITE_DEFAULT}>>:NTHREADS=\(${NTHREADS}U\)>
 )
 

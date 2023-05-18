@@ -10,6 +10,8 @@
 #ifndef PRAGMA_OFFLOAD_HPP
 #define PRAGMA_OFFLOAD_HPP
 
+#ifdef USE_PRAGMA_OFFLOAD
+
 #ifdef _OPENACC
 // use OpenACC directives for GPU offloading
 #include "pragma_acc.hpp"
@@ -80,5 +82,19 @@
 #define PRAGMA_OFFLOAD_MEMCPY_H2D(...) PRAGMA_OMP_TARGET_MEMCPY_H2D(__VA_ARGS__)
 
 #endif  // _OPENACC
+
+#else  // USE_PRAGMA_OFFLOAD
+
+// disable macros for offloading
+
+#define PRAGMA_OFFLOAD_LOOP_THREAD(n)
+#define PRAGMA_OFFLOAD_LOOP
+
+#define PRAGMA_OFFLOAD_MALLOC(...)
+#define PRAGMA_OFFLOAD_FREE(...)
+#define PRAGMA_OFFLOAD_MEMCPY_D2H(...)
+#define PRAGMA_OFFLOAD_MEMCPY_H2D(...)
+
+#endif  // USE_PRAGMA_OFFLOAD
 
 #endif  // PRAGMA_OFFLOAD_HPP
