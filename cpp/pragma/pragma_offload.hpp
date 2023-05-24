@@ -85,11 +85,11 @@
 
 #else  // USE_PRAGMA_OFFLOAD
 
-// disable macros for offloading
+#include "pragma_omp.hpp"
+#define PRAGMA_OFFLOAD_LOOP_THREAD(n) PRAGMA_OMP(parallel for)
+#define PRAGMA_OFFLOAD_LOOP PRAGMA_OMP(parallel for)
 
-#define PRAGMA_OFFLOAD_LOOP_THREAD(n)
-#define PRAGMA_OFFLOAD_LOOP
-
+// disable macros only for offloading
 #define PRAGMA_OFFLOAD_MALLOC(...)
 #define PRAGMA_OFFLOAD_FREE(...)
 #define PRAGMA_OFFLOAD_MEMCPY_D2H(...)
