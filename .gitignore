@@ -4,7 +4,7 @@ make.log
 ninja.log
 doxygen.log
 # directories for numerical simulations or development
-*build/
+*build*/
 *debug/
 # directory for Doxygen
 html/

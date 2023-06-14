@@ -56,7 +56,7 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
 * <details><summary>GUIツール（ccmake）を併用しての設定方法</summary>
 
   ```sh
-  cmake -S. -Bbuild # source directory is the current directory, target directory is build/
+  cmake -S . -B build # source directory is the current directory, target directory is build/
   cd build
   ccmake ../        # set options using the GUI interface (CXX cannot be changed in this step)
   ```
@@ -66,7 +66,7 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
 * <details><summary>コマンドラインのみでの設定方法</summary>
 
   ```sh
-  cmake -S. -Bbuild [option] # source directory is the current directory, target directory is build/
+  cmake -S . -B build [option] # source directory is the current directory, target directory is build/
   cd build
   ```
 
@@ -75,7 +75,7 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
 * <details><summary>キャッシュを無視して再設定する方法（CMake 3.24以降）</summary>
 
   ```sh
-  cmake --fresh -S. -Bbuild [option] # introduced in CMake 3.24
+  cmake --fresh -S . -B build [option] # introduced in CMake 3.24
   ```
 
   </details>
