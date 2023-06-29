@@ -1,5 +1,5 @@
 # compile direct N-body code (GPU implementation using OpenMP target directives)
-project(omp_excercise CXX)
+project(omp_exercise CXX)
 message(STATUS "Generate ${PROJECT_NAME} ...")
 
 # define the executable

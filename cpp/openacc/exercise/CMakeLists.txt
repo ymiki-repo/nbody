@@ -1,5 +1,5 @@
 # compile direct N-body code (GPU implementation using OpenACC)
-project(acc_excercise CXX)
+project(acc_exercise CXX)
 message(STATUS "Generate ${PROJECT_NAME} ...")
 
 # define the executable
