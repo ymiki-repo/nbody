@@ -27,6 +27,21 @@
 #define PRAGMA_OFFLOAD_LOOP PRAGMA_ACC_LOOP
 
 ///
+/// @brief offload the specified loop with reduction
+///
+#define PRAGMA_OFFLOAD_LOOP_REDUCE(...) PRAGMA_ACC_LOOP_REDUCE(__VA_ARGS__)
+
+///
+/// @brief collapse the offloaded loops (specify number of loops collapsed)
+///
+#define PRAGMA_OFFLOAD_LOOP_COLLAPSE(n) PRAGMA_ACC_LOOP_COLLAPSE(n)
+
+///
+/// @brief collapse the offloaded loops (specify number of loops collapsed) with reduction
+///
+#define PRAGMA_OFFLOAD_LOOP_COLLAPSE_REDUCE(...) PRAGMA_ACC_LOOP_COLLAPSE_REDUCE(__VA_ARGS__)
+
+///
 /// @brief allocate device memory
 ///
 #define PRAGMA_OFFLOAD_MALLOC(...) PRAGMA_ACC_MALLOC(__VA_ARGS__)
@@ -62,6 +77,21 @@
 #define PRAGMA_OFFLOAD_LOOP PRAGMA_OMP_TARGET_LOOP
 
 ///
+/// @brief offload the specified loop with reduction
+///
+#define PRAGMA_OFFLOAD_LOOP_REDUCE(...) PRAGMA_OMP_TARGET_LOOP_REDUCE(__VA_ARGS__)
+
+///
+/// @brief collapse the offloaded loops (specify number of loops collapsed)
+///
+#define PRAGMA_OFFLOAD_LOOP_COLLAPSE(n) PRAGMA_OMP_TARGET_LOOP_COLLAPSE(n)
+
+///
+/// @brief collapse the offloaded loops (specify number of loops collapsed) with reduction
+///
+#define PRAGMA_OFFLOAD_LOOP_COLLAPSE_REDUCE(...) PRAGMA_OMP_TARGET_LOOP_COLLAPSE_REDUCE(__VA_ARGS__)
+
+///
 /// @brief allocate device memory
 ///
 #define PRAGMA_OFFLOAD_MALLOC(...) PRAGMA_OMP_TARGET_MALLOC(__VA_ARGS__)
@@ -86,8 +116,12 @@
 #else  // USE_PRAGMA_OFFLOAD
 
 #include "pragma_omp.hpp"
-#define PRAGMA_OFFLOAD_LOOP_THREAD(n) PRAGMA_OMP(parallel for)
-#define PRAGMA_OFFLOAD_LOOP PRAGMA_OMP(parallel for)
+#define PRAGMA_OFFLOAD_LOOP_THREAD(n) PRAGMA_OMP_PRALLEL_FOR()
+#define PRAGMA_OFFLOAD_LOOP PRAGMA_OMP_PARALLEL_FOR()
+
+#define PRAGMA_OFFLOAD_LOOP_REDUCE(...) PRAGMA_OMP_PARALLEL_FOR(reduction(__VA_ARGS__))
+#define PRAGMA_OFFLOAD_LOOP_COLLAPSE(n) PRAGMA_OMP_PARALLEL_FOR(collapse(n))
+#define PRAGMA_OFFLOAD_LOOP_COLLAPSE_REDUCE(n, ...) PRAGMA_OMP_PARALLEL_FOR(collapse(n) reduction(__VA_ARGS__))
 
 // disable macros only for offloading
 #define PRAGMA_OFFLOAD_MALLOC(...)

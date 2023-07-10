@@ -40,9 +40,26 @@
 ///
 #if OMP_TARGET_HAS_LOOP_DIRECTIVE
 #define PRAGMA_OMP_TARGET_LOOP PRAGMA_OMP_TARGET(teams loop)
+#define PRAGMA_OMP_TARGET_LOOP_WITH_ARGS(...) PRAGMA_OMP_TARGET(teams loop __VA_ARGS__)
 #else  // OMP_TARGET_HAS_LOOP_DIRECTIVE
 #define PRAGMA_OMP_TARGET_LOOP PRAGMA_OMP_TARGET_TEAMS_DISTRIBUTE()
+#define PRAGMA_OMP_TARGET_LOOP_WITH_ARGS(...) PRAGMA_OMP_TARGET_TEAMS_DISTRIBUTE(__VA_ARGS__)
 #endif  // OMP_TARGET_HAS_LOOP_DIRECTIVE
+
+///
+/// @brief offload the specified loop with reduction
+///
+#define PRAGMA_OMP_TARGET_LOOP_REDUCE(...) PRAGMA_OMP_TARGET_LOOP_WITH_ARGS(reduction(__VA_ARGS__))
+
+///
+/// @brief collapse the offloaded loops (specify number of loops collapsed)
+///
+#define PRAGMA_OMP_TARGET_LOOP_COLLAPSE(n) PRAGMA_OMP_TARGET_LOOP_WITH_ARGS(collapse(n))
+
+///
+/// @brief collapse the offloaded loops (specify number of loops collapsed) with reduction
+///
+#define PRAGMA_OMP_TARGET_LOOP_COLLAPSE_REDUCE(n, ...) PRAGMA_OMP_TARGET_LOOP_WITH_ARGS(collapse(n) reduction(__VA_ARGS__))
 
 ///
 /// @brief allocate device memory

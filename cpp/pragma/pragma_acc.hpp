@@ -38,6 +38,21 @@
 #define PRAGMA_ACC_LOOP PRAGMA_ACC_KERNELS_LOOP()
 
 ///
+/// @brief offload the specified loop with reduction
+///
+#define PRAGMA_ACC_LOOP_REDUCE(...) PRAGMA_ACC_KERNELS_LOOP(reduction(__VA_ARGS__))
+
+///
+/// @brief collapse the offloaded loops (specify number of loops collapsed)
+///
+#define PRAGMA_ACC_LOOP_COLLAPSE(n) PRAGMA_ACC_KERNELS_LOOP(collapse(n))
+
+///
+/// @brief collapse the offloaded loops (specify number of loops collapsed) with reduction
+///
+#define PRAGMA_ACC_LOOP_COLLAPSE_REDUCE(n, ...) PRAGMA_ACC_KERNELS_LOOP(collapse(n) reduction(__VA_ARGS__))
+
+///
 /// @brief allocate device memory
 ///
 #define PRAGMA_ACC_MALLOC(...) PRAGMA_ACC(enter data create(__VA_ARGS__))
