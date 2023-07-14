@@ -23,7 +23,7 @@ OpenMP（target指示文）を用いた$N$体計算コード（直接法）の�
      }
      ```
 
-  * loop 指示節を使用する場合の実装（スレッド数の示唆はできない）
+  * loop 指示節を使用する場合の実装
 
      ```c++
      #pragma omp target teams loop
@@ -31,6 +31,15 @@ OpenMP（target指示文）を用いた$N$体計算コード（直接法）の�
        ...
      }
      ```
+
+    * オプション：スレッドブロックあたりのスレッド数を示唆
+
+       ```c++
+       #pragma omp target teams loop thread_limit(256)
+       for(int32_t ii = 0; ii < num; ii++){
+         ...
+       }
+       ```
 
 * （Unified Memoryを使わない場合）データ指示文を追加
   1. GPU上のメモリ確保
