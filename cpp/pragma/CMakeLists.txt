@@ -14,22 +14,21 @@ add_executable(${PROJECT_NAME}
 )
 
 # option
-option(USE_OPENACC_AS_DIRECTIVE "On to use OpenACC for GPU offloading" ON)
-option(USE_OPENMP_AS_DIRECTIVE "On to use OpenMP target directive for GPU offloading" ON)
+option(OFFLOAD_BY_OPENACC "On to use OpenACC for GPU offloading" ON)
+option(OFFLOAD_BY_OPENMP_TARGET "On to use OpenMP target directive for GPU offloading" ON)
 
-if(USE_OPENACC_AS_DIRECTIVE)
-    set(USE_OPENMP_AS_DIRECTIVE OFF)
-else(USE_OPENACC_AS_DIRECTIVE)
-    set(USE_OPENMP_AS_DIRECTIVE ON)
-endif(USE_OPENACC_AS_DIRECTIVE)
+if(OFFLOAD_BY_OPENACC)
+    set(OFFLOAD_BY_OPENMP_TARGET OFF)
+endif(OFFLOAD_BY_OPENACC)
 
-message(STATUS "USE_OPENACC_AS_DIRECTIVE is ${USE_OPENACC_AS_DIRECTIVE}")
-message(STATUS "USE_OPENMP_AS_DIRECTIVE is ${USE_OPENMP_AS_DIRECTIVE}")
+message(STATUS "OFFLOAD_BY_OPENACC is ${OFFLOAD_BY_OPENACC}")
+message(STATUS "OFFLOAD_BY_OPENMP_TARGET is ${OFFLOAD_BY_OPENMP_TARGET}")
 
 # apply common settings
 include(${USER_MODULE_PATH}/apply_common_settings.cmake)
 target_compile_definitions(${PROJECT_NAME} PUBLIC
-    $<$<BOOL:${GPU_EXECUTION}>:USE_PRAGMA_OFFLOAD>
+    $<$<BOOL:${OFFLOAD_BY_OPENACC}>:OFFLOAD_BY_OPENACC>
+    $<$<BOOL:${OFFLOAD_BY_OPENMP_TARGET}>:OFFLOAD_BY_OPENMP_TARGET>
     $<$<AND:$<BOOL:${GPU_EXECUTION}>,$<BOOL:${OVERWRITE_DEFAULT}>>:NTHREADS=\(${NTHREADS}U\)>
 )
 
@@ -37,20 +36,28 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC
 target_compile_options(${PROJECT_NAME} PRIVATE
 
     # for OpenACC offloading
-    $<$<AND:$<BOOL:${GPU_EXECUTION}>,$<BOOL:${USE_OPENACC_AS_DIRECTIVE}>,$<CXX_COMPILER_ID:NVHPC>>:-acc=gpu -gpu=cc${NVIDIA_GPU_HARD} -Minfo=accel,opt>
-    $<$<AND:$<BOOL:${OpenMP_FOUND}>,$<BOOL:${USE_OPENACC_AS_DIRECTIVE}>,$<CXX_COMPILER_ID:NVHPC>>:${OpenMP_CXX_FLAGS}=multicore>
+    $<$<AND:$<BOOL:${OFFLOAD_BY_OPENACC}>,$<CXX_COMPILER_ID:NVHPC>,$<BOOL:${GPU_EXECUTION}>>:-acc=gpu>
+    $<$<AND:$<BOOL:${OFFLOAD_BY_OPENACC}>,$<CXX_COMPILER_ID:NVHPC>,$<NOT:$<BOOL:${GPU_EXECUTION}>>>:-acc=multicore>
+    $<$<AND:$<BOOL:${OpenMP_FOUND}>,$<BOOL:${OFFLOAD_BY_OPENACC}>,$<CXX_COMPILER_ID:NVHPC>>:${OpenMP_CXX_FLAGS}=multicore>
 
     # for OpenMP target offloading
-    $<$<AND:$<BOOL:${OpenMP_FOUND}>,$<BOOL:${GPU_EXECUTION}>,$<BOOL:${USE_OPENMP_AS_DIRECTIVE}>,$<CXX_COMPILER_ID:NVHPC>>:-mp=gpu -gpu=cc${NVIDIA_GPU_HARD} -Minfo=accel,opt,mp>
-    $<$<AND:$<BOOL:${OpenMP_FOUND}>,$<NOT:$<BOOL:${GPU_EXECUTION}>>,$<BOOL:${USE_OPENMP_AS_DIRECTIVE}>,$<CXX_COMPILER_ID:NVHPC>>:-mp=multicore>
+    $<$<AND:$<BOOL:${OpenMP_FOUND}>,$<BOOL:${OFFLOAD_BY_OPENMP_TARGET}>,$<CXX_COMPILER_ID:NVHPC>,$<BOOL:${GPU_EXECUTION}>>:${OpenMP_CXX_FLAGS}=gpu>
+    $<$<AND:$<BOOL:${OpenMP_FOUND}>,$<BOOL:${OFFLOAD_BY_OPENMP_TARGET}>,$<CXX_COMPILER_ID:NVHPC>,$<NOT:$<BOOL:${GPU_EXECUTION}>>>:${OpenMP_CXX_FLAGS}=multicore>
+
+    # specify GPU generation
+    $<$<AND:$<BOOL:${GPU_EXECUTION}>,$<CXX_COMPILER_ID:NVHPC>>:-gpu=cc${NVIDIA_GPU_HARD}>
+
+    # enhance compiler messages
+    $<$<AND:$<BOOL:${OFFLOAD_BY_OPENACC}>,$<CXX_COMPILER_ID:NVHPC>>:-Minfo=accel,opt>
+    $<$<AND:$<BOOL:${OpenMP_FOUND}>,$<BOOL:${OFFLOAD_BY_OPENMP_TARGET}>,$<CXX_COMPILER_ID:NVHPC>>:-Minfo=accel,opt,mp>
 )
 target_link_libraries(${PROJECT_NAME} PRIVATE
 
     # for OpenACC offloading
-    $<$<AND:$<BOOL:${GPU_EXECUTION}>,$<BOOL:${USE_OPENACC_AS_DIRECTIVE}>,$<CXX_COMPILER_ID:NVHPC>>:-acc=gpu>
-    $<$<AND:$<BOOL:${OpenMP_FOUND}>,$<BOOL:${USE_OPENACC_AS_DIRECTIVE}>,$<CXX_COMPILER_ID:NVHPC>>:${OpenMP_CXX_FLAGS}=multicore>
+    $<$<AND:$<BOOL:${GPU_EXECUTION}>,$<BOOL:${OFFLOAD_BY_OPENACC}>,$<CXX_COMPILER_ID:NVHPC>>:-acc=gpu>
+    $<$<AND:$<BOOL:${OpenMP_FOUND}>,$<BOOL:${OFFLOAD_BY_OPENACC}>,$<CXX_COMPILER_ID:NVHPC>>:${OpenMP_CXX_FLAGS}=multicore>
 
     # for OpenMP target offloading
-    $<$<AND:$<BOOL:${OpenMP_FOUND}>,$<BOOL:${GPU_EXECUTION}>,$<BOOL:${USE_OPENMP_AS_DIRECTIVE}>,$<CXX_COMPILER_ID:NVHPC>>:-mp=gpu>
-    $<$<AND:$<BOOL:${OpenMP_FOUND}>,$<NOT:$<BOOL:${GPU_EXECUTION}>>,$<BOOL:${USE_OPENMP_AS_DIRECTIVE}>,$<CXX_COMPILER_ID:NVHPC>>:-mp=multicore>
+    $<$<AND:$<BOOL:${OpenMP_FOUND}>,$<BOOL:${OFFLOAD_BY_OPENMP_TARGET}>,$<CXX_COMPILER_ID:NVHPC>,$<BOOL:${GPU_EXECUTION}>>:${OpenMP_CXX_FLAGS}=gpu>
+    $<$<AND:$<BOOL:${OpenMP_FOUND}>,$<BOOL:${OFFLOAD_BY_OPENMP_TARGET}>,$<CXX_COMPILER_ID:NVHPC>,$<NOT:$<BOOL:${GPU_EXECUTION}>>>:${OpenMP_CXX_FLAGS}=multicore>
 )

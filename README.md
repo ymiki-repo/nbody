@@ -58,7 +58,7 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
   ```sh
   cmake -S . -B build # source directory is the current directory, target directory is build/
   cd build
-  ccmake ../        # set options using the GUI interface (CXX cannot be changed in this step)
+  ccmake -S ..
   ```
 
   </details>
