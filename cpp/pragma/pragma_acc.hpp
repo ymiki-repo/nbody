@@ -23,34 +23,34 @@
 #define PRAGMA_ACC(...) PRAGMA(acc __VA_ARGS__)
 
 ///
-/// @brief add arguments into _Pragma("acc kernels") _Pragma("acc loop independent")
+/// @brief add arguments into _Pragma("acc kernels") _Pragma("acc loop")
 ///
-#define PRAGMA_ACC_KERNELS_LOOP(...) PRAGMA_ACC(kernels) PRAGMA_ACC(loop independent __VA_ARGS__)
-
-///
-/// @brief offload the specified loop as thread-blocks with n threads
-///
-#define PRAGMA_ACC_LOOP_THREAD(n) PRAGMA_ACC_KERNELS_LOOP(vector(n))
+#define PRAGMA_ACC_KERNELS_LOOP(...) PRAGMA_ACC(kernels) PRAGMA_ACC(loop __VA_ARGS__)
 
 ///
 /// @brief offload the specified loop as thread-blocks
 ///
-#define PRAGMA_ACC_LOOP PRAGMA_ACC_KERNELS_LOOP()
+#define PRAGMA_ACC_LOOP(...) PRAGMA_ACC_KERNELS_LOOP(__VA_ARGS__)
 
 ///
-/// @brief offload the specified loop with reduction
+/// @brief argument to enhance SIMD vectorization
 ///
-#define PRAGMA_ACC_LOOP_REDUCE(...) PRAGMA_ACC_KERNELS_LOOP(reduction(__VA_ARGS__))
+#define PRAGMA_ACC_INDEPENDENT independent
 
 ///
-/// @brief collapse the offloaded loops (specify number of loops collapsed)
+/// @brief argument to suggest number of threads per thread-block
 ///
-#define PRAGMA_ACC_LOOP_COLLAPSE(n) PRAGMA_ACC_KERNELS_LOOP(collapse(n))
+#define PRAGMA_ACC_VECTOR(n) vector(n)
 
 ///
-/// @brief collapse the offloaded loops (specify number of loops collapsed) with reduction
+/// @brief argument to collapse tightly-nested loops
 ///
-#define PRAGMA_ACC_LOOP_COLLAPSE_REDUCE(n, ...) PRAGMA_ACC_KERNELS_LOOP(collapse(n) reduction(__VA_ARGS__))
+#define PRAGMA_ACC_COLLAPSE(n) collapse(n)
+
+///
+/// @brief argument to perform reduction
+///
+#define PRAGMA_ACC_REDUCTION(...) reduction(__VA_ARGS__)
 
 ///
 /// @brief allocate device memory

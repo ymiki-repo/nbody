@@ -26,40 +26,18 @@
 #define PRAGMA_OMP_TARGET(...) PRAGMA_OMP(target __VA_ARGS__)
 
 ///
-/// @brief add arguments into _Pragma("omp target teams distribute parallel for simd")
-///
-#define PRAGMA_OMP_TARGET_TEAMS_DISTRIBUTE(...) PRAGMA_OMP_TARGET(teams distribute parallel for simd __VA_ARGS__)
-
-///
-/// @brief offload the specified loop as thread-blocks with n threads
-///
-#define PRAGMA_OMP_TARGET_LOOP_THREAD(n) PRAGMA_OMP_TARGET_TEAMS_DISTRIBUTE(thread_limit(n))
-
-///
 /// @brief offload the specified loop as thread-blocks
 ///
 #if OMP_TARGET_HAS_LOOP_DIRECTIVE
-#define PRAGMA_OMP_TARGET_LOOP PRAGMA_OMP_TARGET(teams loop)
-#define PRAGMA_OMP_TARGET_LOOP_WITH_ARGS(...) PRAGMA_OMP_TARGET(teams loop __VA_ARGS__)
+#define PRAGMA_OMP_TARGET_LOOP(...) PRAGMA_OMP_TARGET(teams loop __VA_ARGS__)
 #else  // OMP_TARGET_HAS_LOOP_DIRECTIVE
-#define PRAGMA_OMP_TARGET_LOOP PRAGMA_OMP_TARGET_TEAMS_DISTRIBUTE()
-#define PRAGMA_OMP_TARGET_LOOP_WITH_ARGS(...) PRAGMA_OMP_TARGET_TEAMS_DISTRIBUTE(__VA_ARGS__)
+#define PRAGMA_OMP_TARGET_LOOP(...) PRAGMA_OMP_TARGET(teams distribute parallel for __VA_ARGS__)
 #endif  // OMP_TARGET_HAS_LOOP_DIRECTIVE
 
 ///
-/// @brief offload the specified loop with reduction
+/// @brief argument to suggest number of threads per thread-block
 ///
-#define PRAGMA_OMP_TARGET_LOOP_REDUCE(...) PRAGMA_OMP_TARGET_LOOP_WITH_ARGS(reduction(__VA_ARGS__))
-
-///
-/// @brief collapse the offloaded loops (specify number of loops collapsed)
-///
-#define PRAGMA_OMP_TARGET_LOOP_COLLAPSE(n) PRAGMA_OMP_TARGET_LOOP_WITH_ARGS(collapse(n))
-
-///
-/// @brief collapse the offloaded loops (specify number of loops collapsed) with reduction
-///
-#define PRAGMA_OMP_TARGET_LOOP_COLLAPSE_REDUCE(n, ...) PRAGMA_OMP_TARGET_LOOP_WITH_ARGS(collapse(n) reduction(__VA_ARGS__))
+#define PRAGMA_OMP_THREAD_LIMIT(n) thread_limit(n)
 
 ///
 /// @brief allocate device memory

@@ -28,18 +28,18 @@
 #define PRAGMA_OMP_PARALLEL_FOR(...) PRAGMA_OMP(parallel for __VA_ARGS__)
 
 ///
-/// @brief collapse the offloaded loops (specify number of loops collapsed)
+/// @brief argument to enhance SIMD vectorization
 ///
-#define PRAGMA_OMP_COLLAPSE(...) PRAGMA_OMP(collapse(__VA_ARGS__))
+#define PRAGMA_OMP_SIMD simd
 
 ///
-/// @brief collapse the offloaded loops
+/// @brief argument to collapse tightly-nested loops
 ///
-#define PRAGMA_OMP_COLLAPSE_ALL PRAGMA_OMP(collapse)
+#define PRAGMA_OMP_COLLAPSE(n) collapse(n)
 
 ///
-/// @brief collapse the offloaded loops
+/// @brief argument to perform reduction
 ///
-#define PRAGMA_OMP_COLLAPSE_ALL PRAGMA_OMP(collapse)
+#define PRAGMA_OMP_REDUCTION(...) reduction(__VA_ARGS__)
 
 #endif  // PRAGMA_OMP_HPP

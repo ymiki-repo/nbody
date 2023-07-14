@@ -10,125 +10,126 @@
 #ifndef PRAGMA_OFFLOAD_HPP
 #define PRAGMA_OFFLOAD_HPP
 
-#ifdef USE_PRAGMA_OFFLOAD
-
-#ifdef _OPENACC
+#ifdef OFFLOAD_BY_OPENACC
 // use OpenACC directives for GPU offloading
 #include "pragma_acc.hpp"
 
 ///
-/// @brief offload the specified loop as thread-blocks with n threads
-///
-#define PRAGMA_OFFLOAD_LOOP_THREAD(n) PRAGMA_ACC_LOOP_THREAD(n)
-
-///
 /// @brief offload the specified loop as thread-blocks
 ///
-#define PRAGMA_OFFLOAD_LOOP PRAGMA_ACC_LOOP
+#define OFFLOAD_LOOP(...) PRAGMA_ACC_LOOP(__VA_ARGS__)
 
 ///
-/// @brief offload the specified loop with reduction
+/// @brief optional argument to enhance SIMD vectorization
 ///
-#define PRAGMA_OFFLOAD_LOOP_REDUCE(...) PRAGMA_ACC_LOOP_REDUCE(__VA_ARGS__)
+#define OPTARG_ENHANCE_SIMD PRAGMA_ACC_INDEPENDENT
 
 ///
-/// @brief collapse the offloaded loops (specify number of loops collapsed)
+/// @brief optional argument to suggest number of threads per thread-block
 ///
-#define PRAGMA_OFFLOAD_LOOP_COLLAPSE(n) PRAGMA_ACC_LOOP_COLLAPSE(n)
+#define OPTARG_NUM_THREADS(n) PRAGMA_ACC_VECTOR(n)
 
 ///
-/// @brief collapse the offloaded loops (specify number of loops collapsed) with reduction
+/// @brief optional argument to collapse tightly-nested loops
 ///
-#define PRAGMA_OFFLOAD_LOOP_COLLAPSE_REDUCE(...) PRAGMA_ACC_LOOP_COLLAPSE_REDUCE(__VA_ARGS__)
+#define OPTARG_COLLAPSE(n) PRAGMA_ACC_COLLAPSE(n)
+
+///
+/// @brief optional argument to perform reduction
+///
+#define OPTARG_REDUCTION(...) PRAGMA_ACC_REDUCTION(__VA_ARGS__)
 
 ///
 /// @brief allocate device memory
 ///
-#define PRAGMA_OFFLOAD_MALLOC(...) PRAGMA_ACC_MALLOC(__VA_ARGS__)
+#define OFFLOAD_MALLOC(...) PRAGMA_ACC_MALLOC(__VA_ARGS__)
 
 ///
 /// @brief release device memory
 ///
-#define PRAGMA_OFFLOAD_FREE(...) PRAGMA_ACC_FREE(__VA_ARGS__)
+#define OFFLOAD_FREE(...) PRAGMA_ACC_FREE(__VA_ARGS__)
 
 ///
 /// @brief memcpy from device to host
 ///
-#define PRAGMA_OFFLOAD_MEMCPY_D2H(...) PRAGMA_ACC_MEMCPY_D2H(__VA_ARGS__)
+#define OFFLOAD_MEMCPY_D2H(...) PRAGMA_ACC_MEMCPY_D2H(__VA_ARGS__)
 
 ///
 /// @brief memcpy from host to device
 ///
-#define PRAGMA_OFFLOAD_MEMCPY_H2D(...) PRAGMA_ACC_MEMCPY_H2D(__VA_ARGS__)
+#define OFFLOAD_MEMCPY_H2D(...) PRAGMA_ACC_MEMCPY_H2D(__VA_ARGS__)
 
-#else  // _OPENACC
+#else  // OFFLOAD_BY_OPENACC
+
+// use OpenMP directives (target is CPU or GPU)
+#include "pragma_omp.hpp"
+
+///
+/// @brief optional argument to enhance SIMD vectorization
+///
+#define OPTARG_ENHANCE_SIMD PRAGMA_OMP_SIMD
+
+///
+/// @brief optional argument to collapse tightly-nested loops
+///
+#define OPTARG_COLLAPSE(n) PRAGMA_OMP_COLLAPSE(n)
+
+///
+/// @brief optional argument to perform reduction
+///
+#define OPTARG_REDUCTION(...) PRAGMA_OMP_REDUCTION(__VA_ARGS__)
+
+#ifdef OFFLOAD_BY_OPENMP_TARGET
 
 // use OpenMP target directives for GPU offloading
 #include "pragma_omp_target.hpp"
 
 ///
-/// @brief offload the specified loop as thread-blocks with n threads
-///
-#define PRAGMA_OFFLOAD_LOOP_THREAD(n) PRAGMA_OMP_TARGET_LOOP_THREAD(n)
-
-///
 /// @brief offload the specified loop as thread-blocks
 ///
-#define PRAGMA_OFFLOAD_LOOP PRAGMA_OMP_TARGET_LOOP
+#define OFFLOAD_LOOP(...) PRAGMA_OMP_TARGET_LOOP(__VA_ARGS__)
 
 ///
-/// @brief offload the specified loop with reduction
+/// @brief optional argument to suggest number of threads per thread-block
 ///
-#define PRAGMA_OFFLOAD_LOOP_REDUCE(...) PRAGMA_OMP_TARGET_LOOP_REDUCE(__VA_ARGS__)
-
-///
-/// @brief collapse the offloaded loops (specify number of loops collapsed)
-///
-#define PRAGMA_OFFLOAD_LOOP_COLLAPSE(n) PRAGMA_OMP_TARGET_LOOP_COLLAPSE(n)
-
-///
-/// @brief collapse the offloaded loops (specify number of loops collapsed) with reduction
-///
-#define PRAGMA_OFFLOAD_LOOP_COLLAPSE_REDUCE(...) PRAGMA_OMP_TARGET_LOOP_COLLAPSE_REDUCE(__VA_ARGS__)
+#define OPTARG_NUM_THREADS(n) PRAGMA_OMP_THREAD_LIMIT(n)
 
 ///
 /// @brief allocate device memory
 ///
-#define PRAGMA_OFFLOAD_MALLOC(...) PRAGMA_OMP_TARGET_MALLOC(__VA_ARGS__)
+#define OFFLOAD_MALLOC(...) PRAGMA_OMP_TARGET_MALLOC(__VA_ARGS__)
 
 ///
 /// @brief release device memory
 ///
-#define PRAGMA_OFFLOAD_FREE(...) PRAGMA_OMP_TARGET_FREE(__VA_ARGS__)
+#define OFFLOAD_FREE(...) PRAGMA_OMP_TARGET_FREE(__VA_ARGS__)
 
 ///
 /// @brief memcpy from device to host
 ///
-#define PRAGMA_OFFLOAD_MEMCPY_D2H(...) PRAGMA_OMP_TARGET_MEMCPY_D2H(__VA_ARGS__)
+#define OFFLOAD_MEMCPY_D2H(...) PRAGMA_OMP_TARGET_MEMCPY_D2H(__VA_ARGS__)
 
 ///
 /// @brief memcpy from host to device
 ///
-#define PRAGMA_OFFLOAD_MEMCPY_H2D(...) PRAGMA_OMP_TARGET_MEMCPY_H2D(__VA_ARGS__)
+#define OFFLOAD_MEMCPY_H2D(...) PRAGMA_OMP_TARGET_MEMCPY_H2D(__VA_ARGS__)
 
-#endif  // _OPENACC
+#else  // OFFLOAD_BY_OPENMP_TARGET
 
-#else  // USE_PRAGMA_OFFLOAD
-
-#include "pragma_omp.hpp"
-#define PRAGMA_OFFLOAD_LOOP_THREAD(n) PRAGMA_OMP_PRALLEL_FOR()
-#define PRAGMA_OFFLOAD_LOOP PRAGMA_OMP_PARALLEL_FOR()
-
-#define PRAGMA_OFFLOAD_LOOP_REDUCE(...) PRAGMA_OMP_PARALLEL_FOR(reduction(__VA_ARGS__))
-#define PRAGMA_OFFLOAD_LOOP_COLLAPSE(n) PRAGMA_OMP_PARALLEL_FOR(collapse(n))
-#define PRAGMA_OFFLOAD_LOOP_COLLAPSE_REDUCE(n, ...) PRAGMA_OMP_PARALLEL_FOR(collapse(n) reduction(__VA_ARGS__))
+// target of OpenMP directives are CPU
+///
+/// @brief offload the specified loop as thread-blocks
+///
+#define OFFLOAD_LOOP(...) PRAGMA_OMP_PARALLEL_FOR(__VA_ARGS__)
 
 // disable macros only for offloading
-#define PRAGMA_OFFLOAD_MALLOC(...)
-#define PRAGMA_OFFLOAD_FREE(...)
-#define PRAGMA_OFFLOAD_MEMCPY_D2H(...)
-#define PRAGMA_OFFLOAD_MEMCPY_H2D(...)
+#define OPTARG_NUM_THREADS(n)
+#define OFFLOAD_MALLOC(...)
+#define OFFLOAD_FREE(...)
+#define OFFLOAD_MEMCPY_D2H(...)
+#define OFFLOAD_MEMCPY_H2D(...)
 
-#endif  // USE_PRAGMA_OFFLOAD
+#endif  // OFFLOAD_BY_OPENMP_TARGET
+#endif  // OFFLOAD_BY_OPENACC
 
 #endif  // PRAGMA_OFFLOAD_HPP
