@@ -28,7 +28,7 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
     ```sh
     module purge       # for safety
     module load cmake  # CMake: just for compilation
-    module load nvidia # NVIDIA HPC SDK
+    module load nvidia/22.7 # NVIDIA HPC SDK
     module load hdf5   # HDF5
     ```
 

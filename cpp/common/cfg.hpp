@@ -35,7 +35,8 @@ class config {
         "num_bin", boost::program_options::value<decltype(num_bin)>()->default_value(13), "Number of logarithmic grids about number of N-body particles")(
         "elapse_min", boost::program_options::value<decltype(elapse_min)>()->default_value(1.0), "Minimum elapsed time for each measurement")(
 #else  // BENCHMARK_MODE
-        "num", boost::program_options::value<decltype(num)>()->default_value(2048U), "Number of N-body particles")(
+       // 1031 is the minimum prime number greater than 1024
+        "num", boost::program_options::value<decltype(num)>()->default_value(1031U), "Number of N-body particles")(
         "finish", boost::program_options::value<decltype(ft)>()->default_value(AS_FP_M(10.0)), "Final time of the simulation")(
         "interval", boost::program_options::value<decltype(interval)>()->default_value(AS_FP_M(0.125)), "Interval between snapshots")(
 #ifdef USE_HERMITE
@@ -186,7 +187,7 @@ class config {
   type::fp_m ft = AS_FP_M(0.0);        // final time of the simulation
   type::fp_m interval = AS_FP_M(0.0);  // interval between snapshots
 #ifdef USE_HERMITE
-  type::fp_m eta = AS_FP_M(1.0);       // safety parameter to determine time step in the simulation
+  type::fp_m eta = AS_FP_M(1.0);  // safety parameter to determine time step in the simulation
 #else   // USE_HERMITE
   type::fp_m dt = AS_FP_M(0.0);  // time step in the simulation
 #endif  // USE_HERMITE

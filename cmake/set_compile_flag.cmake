@@ -33,7 +33,10 @@ target_compile_options(${PROJECT_NAME} PRIVATE
     $<$<BOOL:${USE_SANITIZER_THREAD}>:-fsanitize=thread>
 
     # performance optimization
+    # $<$<AND:$<NOT:$<CONFIG:Debug>>,$<COMPILE_LANGUAGE:CUDA>>:-O3>
+    # $<$<AND:$<NOT:$<CONFIG:Debug>>,$<OR:$<CXX_COMPILER_ID:NVHPC>,$<CXX_COMPILER_ID:IntelLLVM>,$<CXX_COMPILER_ID:Clang>>>:-Ofast>
     $<$<NOT:$<CONFIG:Debug>>:-O3>
+    $<$<COMPILE_LANGUAGE:CUDA>:--ftz=true># flush subnormals to zero
     $<$<CXX_COMPILER_ID:Intel>:-restrict>
     $<$<AND:$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:Intel>>:-ip -xHost -qopt-report=3>
     $<$<AND:$<NOT:$<CONFIG:Debug>>,$<OR:$<CXX_COMPILER_ID:IntelLLVM>,$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:GNU>>>:-ffast-math -funroll-loops>

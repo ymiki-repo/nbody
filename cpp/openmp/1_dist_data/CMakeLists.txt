@@ -21,7 +21,8 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC
 
 # add GPU configuration
 target_compile_options(${PROJECT_NAME} PRIVATE
-    $<$<AND:$<BOOL:${OpenMP_FOUND}>,$<BOOL:${GPU_EXECUTION}>,$<CXX_COMPILER_ID:NVHPC>>:-mp=gpu -gpu=cc${NVIDIA_GPU_HARD} -Minfo=accel,opt,mp>
+    $<$<AND:$<BOOL:${OpenMP_FOUND}>,$<BOOL:${GPU_EXECUTION}>,$<CXX_COMPILER_ID:NVHPC>,$<BOOL:${RELAX_RSQRT_ACCURACY}>>:-mp=gpu -gpu=cc${NVIDIA_GPU_HARD},fastmath -Minfo=accel,opt,mp>
+    $<$<AND:$<BOOL:${OpenMP_FOUND}>,$<BOOL:${GPU_EXECUTION}>,$<CXX_COMPILER_ID:NVHPC>,$<NOT:$<BOOL:${RELAX_RSQRT_ACCURACY}>>>:-mp=gpu -gpu=cc${NVIDIA_GPU_HARD} -Minfo=accel,opt,mp>
     $<$<AND:$<BOOL:${OpenMP_FOUND}>,$<NOT:$<BOOL:${GPU_EXECUTION}>>,$<CXX_COMPILER_ID:NVHPC>>:-mp=multicore>
 )
 target_link_libraries(${PROJECT_NAME} PRIVATE

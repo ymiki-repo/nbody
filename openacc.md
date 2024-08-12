@@ -4,7 +4,7 @@ OpenACC を用いた$N$体計算コード（直接法）の実装概要の紹介
 
 ## 実装方法
 
-* GPU上で計算させたいfor文に指示文を追加
+* GPU上で計算させたいfor文に指示文を追加（`kernels` で GPU化されない場合には `parallel` の使用を検討）
 
    ```c++
    #pragma acc kernels
@@ -14,7 +14,17 @@ OpenACC を用いた$N$体計算コード（直接法）の実装概要の紹介
    }
    ```
 
-  * オプション：スレッドブロックあたりのスレッド数を示唆
+  * オプション：スレッドブロックあたりのスレッド数を示唆（`kernels` で GPU化されない場合には `parallel` の使用を検討）
+
+     ```c++
+     #pragma acc kernels vector_length(256)
+     #pragma acc loop independent
+     for(int32_t ii = 0; ii < num; ii++){
+       ...
+     }
+     ```
+
+  * スレッドブロックあたりのスレッド数は，下記の記法でも示唆できる
 
      ```c++
      #pragma acc kernels

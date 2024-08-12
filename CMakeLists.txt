@@ -194,7 +194,6 @@ if(NOT USE_CUDA)
     add_subdirectory(cpp/openmp) # implementation using OpenMP target directives
     add_subdirectory(cpp/openacc) # implementation using OpenACC directives
     add_subdirectory(cpp/stdpar) # implementation using C++17 Parallel Algorithms
-    add_subdirectory(cpp/pragma) # implementation using OpenACC/OpenMP switching macro
 endif(NOT USE_CUDA)
 
 # add subdirectories for CUDA C++
