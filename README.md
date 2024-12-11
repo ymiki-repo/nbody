@@ -46,6 +46,27 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
 
   </details>
 
+  * <details><summary>Miyabi-G 上でのモジュール設定方法（NVIDIA HPC SDK使用時）</summary>
+
+    ```sh
+    module purge       # for safety
+    module load nvidia # NVIDIA HPC SDK
+    module load hdf5   # HDF5
+    ```
+
+  </details>
+
+  * <details><summary>Miyabi-G 上でのモジュール設定方法（CUDA使用時）</summary>
+
+    ```sh
+    module purge      # for safety
+    module load cuda  # CUDA
+    module load use /work/share/opt/modules/lib   # required to load hdf5
+    module load hdf5  # HDF5
+    ```
+
+  </details>
+
 * <details><summary>可視化に用いるツールキット（オプション）:</summary>
 
   * Julia
@@ -105,11 +126,21 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
 * <details><summary>コンパイル方法</summary>
 
   ```sh
-  ninja # if ninja-build is installed (e.g., Wisteria/BDEC-01)
+  ninja # if ninja-build is installed (e.g., Wisteria/BDEC-01 and Miyabi-G)
   make  # if ninja-build is missing (e.g., GPUクラスタ@CfCA)
   ```
 
   </details>
+
+  * <details><summary>Miyabi-G 上で NVIDIA HPC SDK 使用時にコンパイルに失敗する場合のワークアラウンド</summary>
+
+    ```sh
+    qsub sh/miyabi/make_nvidia.sh
+    ```
+
+    * ログインノードでコンパイルに失敗した場合でも，計算ノードでコンパイルするとコンパイルに成功することが確認できています
+
+    </details>
 
 ## 実行方法
 
@@ -120,6 +151,17 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
   pjsub sh/wisteria/run_cuda.sh # run an $N$-body simulation in default configuration, base compiler is cuda
   pjsub -x EXEC=bin/acc_managed,OPTION="--num=16384 --file=acc" sh/wisteria/run_nvidia.sh # run an $N$-body simulation with option (binary is bin/acc_managed, $N = 16384$, FILENAME is acc), base compiler is nvidia
   pjsub -x EXEC=bin/cuda_memcpy_base,OPTION="--num=16384 --file=cuda_memcpy" sh/wisteria/run_cuda.sh # run an $N$-body simulation with option (binary is bin/cuda_memcpy_base, $N = 16384$, FILENAME is cuda_memcpy), base compiler is cuda
+  ```
+
+  </details>
+
+* <details><summary>Miyabi-G (PBS Pro)</summary>
+
+  ```sh
+  pjsub sh/miyabi/run_nvidia.sh # run an $N$-body simulation in default configuration, base compiler is nvidia
+  pjsub sh/miyabi/run_nvidia_mig.sh # run an $N$-body simulation in default configuration, base compiler is nvidia, use MIG (Multi-Instance GPU)
+  pjsub sh/miyabi/run_cuda.sh # run an $N$-body simulation in default configuration, base compiler is cuda
+  pjsub sh/miyabi/run_cuda_mig.sh # run an $N$-body simulation in default configuration, base compiler is cuda, use MIG (Multi-Instance GPU)
   ```
 
   </details>
