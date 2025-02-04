@@ -120,6 +120,8 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
   | `-DUNROLL=[1 2 4 8 16 32 64 128(default) 256 512 1024]` | Number of unroll counts |
   | `-DRELAX_RSQRT_ACCURACY=[ON OFF(default)]` | On to relax precision for reciprocal square root to accelerate simulations (only for NVIDIA HPC SDK) |
   | `-DEXERCISE_MODE=[ON OFF(default)]` | On to use exercise mode |
+  | `-DTARGET_GPU=[NVIDIA_CC90(default) NVIDIA_CC80 NVIDIA_CC70]` | target GPU architecture: NVIDIA CC90 (Hopper), NVIDIA CC80 (Ampere), or NVIDIA CC70 (Volta) |
+  | `-DTIGHTLY_COUPLED_CPU_GPU=[ON(default) OFF]` | ON for NVIDIA CPU and GPU fused via NVLink-C2C |
 
   </details>
 
@@ -132,16 +134,6 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
 
   </details>
 
-  * <details><summary>Miyabi-G 上で NVIDIA HPC SDK 使用時にコンパイルに失敗する場合のワークアラウンド</summary>
-
-    ```sh
-    qsub sh/miyabi/make_nvidia.sh
-    ```
-
-    * ログインノードでコンパイルに失敗した場合でも，計算ノードでコンパイルするとコンパイルに成功することが確認できています
-
-    </details>
-
 ## 実行方法
 
 * <details><summary>Wisteria/BDEC-01 (Fujitsu TCS)</summary>
@@ -149,7 +141,7 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
   ```sh
   pjsub sh/wisteria/run_nvidia.sh # run an $N$-body simulation in default configuration, base compiler is nvhpc
   pjsub sh/wisteria/run_cuda.sh # run an $N$-body simulation in default configuration, base compiler is cuda
-  pjsub -x EXEC=bin/acc_managed,OPTION="--num=16384 --file=acc" sh/wisteria/run_nvidia.sh # run an $N$-body simulation with option (binary is bin/acc_managed, $N = 16384$, FILENAME is acc), base compiler is nvidia
+  pjsub -x EXEC=bin/acc_unified,OPTION="--num=16384 --file=acc" sh/wisteria/run_nvidia.sh # run an $N$-body simulation with option (binary is bin/acc_unified, $N = 16384$, FILENAME is acc), base compiler is nvidia
   pjsub -x EXEC=bin/cuda_memcpy_base,OPTION="--num=16384 --file=cuda_memcpy" sh/wisteria/run_cuda.sh # run an $N$-body simulation with option (binary is bin/cuda_memcpy_base, $N = 16384$, FILENAME is cuda_memcpy), base compiler is cuda
   ```
 
@@ -158,10 +150,12 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
 * <details><summary>Miyabi-G (PBS Pro)</summary>
 
   ```sh
-  pjsub sh/miyabi/run_nvidia.sh # run an $N$-body simulation in default configuration, base compiler is nvidia
-  pjsub sh/miyabi/run_nvidia_mig.sh # run an $N$-body simulation in default configuration, base compiler is nvidia, use MIG (Multi-Instance GPU)
-  pjsub sh/miyabi/run_cuda.sh # run an $N$-body simulation in default configuration, base compiler is cuda
-  pjsub sh/miyabi/run_cuda_mig.sh # run an $N$-body simulation in default configuration, base compiler is cuda, use MIG (Multi-Instance GPU)
+  qsub sh/miyabi/run_nvidia.sh # run an $N$-body simulation in default configuration, base compiler is nvidia
+  qub sh/miyabi/run_nvidia_mig.sh # run an $N$-body simulation in default configuration, base compiler is nvidia, use MIG (Multi-Instance GPU)
+  qsub sh/miyabi/run_cuda.sh # run an $N$-body simulation in default configuration, base compiler is cuda
+  qsub sh/miyabi/run_cuda_mig.sh # run an $N$-body simulation in default configuration, base compiler is cuda, use MIG (Multi-Instance GPU)
+  qsub -v EXEC=bin/acc_unified, OPTION="--num=16384 --file=acc" sh/miyabi/run_nvidia.sh # run an $N$-body simulation with option (binary is bin/acc_unified, $N = 16384$, FILENAME is acc), base compiler is nvidia
+  qsub -v EXEC=bin/cuda_memcpy_base, OPTION="--num=16384 --file=cuda_memcpy" sh/miyabi/run_cuda.sh # run an $N$-body simulation with option (binary is bin/cuda_memcpy_base, $N = 16384$, FILENAME is cuda_memcpy), base compiler is cuda
   ```
 
   </details>

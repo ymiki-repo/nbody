@@ -63,9 +63,9 @@ OpenACC を用いた$N$体計算コード（直接法）の実装概要の紹介
 
 | ソースコード | 実装概要 | 備考 |
 | ---- | ---- | ---- |
-| [cpp/openacc/0_managed/nbody_leapfrog2.cpp](/cpp/openacc/0_managed/nbody_leapfrog2.cpp) | Unified Memoryを用いた実装，Leapfrog法 | |
+| [cpp/openacc/0_unified/nbody_leapfrog2.cpp](/cpp/openacc/0_unified/nbody_leapfrog2.cpp) | Unified Memoryを用いた実装，Leapfrog法 | |
 | [cpp/openacc/1_data/nbody_leapfrog2.cpp](/cpp/openacc/1_data/nbody_leapfrog2.cpp) | データ指示文を用いた実装，Leapfrog法 | |
-| [cpp/openacc/0_managed/nbody_hermite4.cpp](/cpp/openacc/0_managed/nbody_hermite4.cpp) | Unified Memoryを用いた実装，Hermite法 | 一部関数のGPU化を無効化 |
+| [cpp/openacc/0_unified/nbody_hermite4.cpp](/cpp/openacc/0_unified/nbody_hermite4.cpp) | Unified Memoryを用いた実装，Hermite法 | 一部関数のGPU化を無効化 |
 | [cpp/openacc/1_data/nbody_hermite4.cpp](/cpp/openacc/1_data/nbody_hermite4.cpp) | データ指示文を用いた実装，Hermite法 | 一部関数のGPU化を無効化 |
 
 * 一部関数のGPU化について
@@ -82,15 +82,17 @@ OpenACC を用いた$N$体計算コード（直接法）の実装概要の紹介
 * 標準的な引数（コンパイル時）
 
   ```sh
-  -acc=gpu -gpu=cc80 -Minfo=accel,opt # OpenACCを使用してGPU化，cc80（NVIDIA A100）向けに最適化，GPUオフローディングや性能最適化に関するコンパイラメッセージを出力
-  -acc=gpu -gpu=cc80,managed -Minfo=accel,opt # 上記に加えて，Unified Memoryを使用
+  -acc=gpu -gpu=cc90 -Minfo=accel,opt # OpenACCを使用してGPU化，cc90（NVIDIA H100）向けに最適化，GPUオフローディングや性能最適化に関するコンパイラメッセージを出力
+  -acc=gpu -gpu=cc90,mem:unified:nomanagedalloc -Minfo=accel,opt # NVIDIA GH200上でUnified Memoryを使用する際のお勧め設定
+  -acc=gpu -gpu=cc90,managed -Minfo=accel,opt # NVIDIA GH200以外の環境（x86 CPUとNVIDIA GPUの組み合わせ）でUnified Memoryを使用する際の設定
   ```
 
 * 標準的な引数（リンク時）
 
   ```sh
   -acc=gpu     # 指定し忘れると，GPU上では動作しない
-  -gpu=managed # Unified Memory 使用時にはこれもつける
+  -gpu=mem:unified:nomanagedalloc # Unified Memory 使用時にはこれもつける（NVIDIA GH200）
+  -gpu=managed # Unified Memory 使用時にはこれもつける（NVIDIA GH200以外の環境：x86 CPUとNVIDIA GPUの組み合わせ）
   ```
 
 ### 実行時

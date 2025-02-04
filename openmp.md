@@ -93,15 +93,17 @@ OpenMP（target指示文）を用いた$N$体計算コード（直接法）の�
 * 標準的な引数（コンパイル時）
 
   ```sh
-  -mp=gpu -gpu=cc80 -Minfo=accel,opt,mp # OpenMPを使用してGPU化，cc80（NVIDIA A100）向けに最適化，GPUオフローディングや性能最適化に関するコンパイラメッセージを出力
-  -mp=gpu -gpu=cc80,managed -Minfo=accel,opt # 上記に加えて，Unified Memoryを使用
+  -mp=gpu -gpu=cc90 -Minfo=accel,opt,mp # OpenMPを使用してGPU化，cc90（NVIDIA H100）向けに最適化，GPUオフローディングや性能最適化に関するコンパイラメッセージを出力
+  -mp=gpu -gpu=cc90,mem:unified:nomanagedalloc -Minfo=accel,opt,mp # NVIDIA GH200上でUnified Memoryを使用する際のお勧め設定
+  -mp=gpu -gpu=cc90,managed -Minfo=accel,opt,mp # NVIDIA GH200以外の環境（x86 CPUとNVIDIA GPUの組み合わせ）でUnified Memoryを使用する際の設定
   ```
 
 * 標準的な引数（リンク時）
 
   ```sh
   -mp=gpu      # 指定し忘れると，GPU上では動作しない
-  -gpu=managed # Unified Memory 使用時にはこれもつける
+  -gpu=mem:unified:nomanagedalloc # Unified Memory 使用時にはこれもつける（NVIDIA GH200）
+  -gpu=managed # Unified Memory 使用時にはこれもつける（NVIDIA GH200以外の環境：x86 CPUとNVIDIA GPUの組み合わせ）
   ```
 
 ### 実行時

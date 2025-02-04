@@ -55,7 +55,7 @@ C++17の標準言語規格を用いた$N$体計算コード（直接法）の実
 * 標準的な引数（コンパイル時）
 
   ```sh
-  -stdpar=gpu -gpu=cc80 -Minfo=accel,opt,stdpar # 標準言語規格を使用してGPU化，cc80（NVIDIA A100）向けに最適化，GPUオフローディングや性能最適化に関するコンパイラメッセージを出力
+  -stdpar=gpu -gpu=cc90 -Minfo=accel,opt,stdpar # 標準言語規格を使用してGPU化，cc90（NVIDIA H100）向けに最適化，GPUオフローディングや性能最適化に関するコンパイラメッセージを出力
   -stdpar=multicore -Minfo=opt,stdpar # 標準言語規格を使用してマルチコアCPU向けに並列化，性能最適化に関するコンパイラメッセージを出力
   ```
 

@@ -1,5 +1,5 @@
-# compile direct N-body code (GPU implementation using OpenACC)
-project(acc_exercise CXX)
+# compile direct N-body code (GPU implementation using OpenACC: use of Unified Memory)
+project(acc_unified CXX)
 message(STATUS "Generate ${PROJECT_NAME} ...")
 
 # define the executable
