@@ -11,7 +11,7 @@ module-whatis "$module"
 
 conflict $module
 
-set root /work/gz00/[getenv USER]
+set root /work/gt00/[getenv USER]
 set path $root/opt/[uname machine]/$module
 
 # confirmation

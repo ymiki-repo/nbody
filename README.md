@@ -23,6 +23,27 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
   * HDF5
   </details>
 
+  * <details><summary>Miyabi-G 上でのモジュール設定方法（NVIDIA HPC SDK使用時）</summary>
+
+    ```sh
+    module purge       # for safety
+    module load nvidia # NVIDIA HPC SDK
+    module load hdf5   # HDF5
+    ```
+
+  </details>
+
+  * <details><summary>Miyabi-G 上でのモジュール設定方法（CUDA使用時）</summary>
+
+    ```sh
+    module purge      # for safety
+    module load cuda  # CUDA
+    module load use /work/share/opt/modules/lib   # required to load hdf5
+    module load hdf5  # HDF5
+    ```
+
+  </details>
+
   * <details><summary>Wisteria/BDEC-01 (Aquarius) 上でのモジュール設定方法（NVIDIA HPC SDK使用時）</summary>
 
     ```sh
@@ -41,27 +62,6 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
     module load cmake # CMake: just for compilation
     module load cuda  # CUDA
     module load gcc   # GCC: required to load hdf5
-    module load hdf5  # HDF5
-    ```
-
-  </details>
-
-  * <details><summary>Miyabi-G 上でのモジュール設定方法（NVIDIA HPC SDK使用時）</summary>
-
-    ```sh
-    module purge       # for safety
-    module load nvidia # NVIDIA HPC SDK
-    module load hdf5   # HDF5
-    ```
-
-  </details>
-
-  * <details><summary>Miyabi-G 上でのモジュール設定方法（CUDA使用時）</summary>
-
-    ```sh
-    module purge      # for safety
-    module load cuda  # CUDA
-    module load use /work/share/opt/modules/lib   # required to load hdf5
     module load hdf5  # HDF5
     ```
 
@@ -136,6 +136,19 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
 
 ## 実行方法
 
+* <details><summary>Miyabi-G (PBS Pro)</summary>
+
+  ```sh
+  qsub sh/miyabi-g/run_nvidia.sh # run an $N$-body simulation in default configuration, base compiler is nvidia
+  qub sh/miyabi-g/run_nvidia_mig.sh # run an $N$-body simulation in default configuration, base compiler is nvidia, use MIG (Multi-Instance GPU)
+  qsub sh/miyabi-g/run_cuda.sh # run an $N$-body simulation in default configuration, base compiler is cuda
+  qsub sh/miyabi-g/run_cuda_mig.sh # run an $N$-body simulation in default configuration, base compiler is cuda, use MIG (Multi-Instance GPU)
+  qsub -v EXEC=bin/acc_unified, OPTION="--num=16384 --file=acc" sh/miyabi-g/run_nvidia.sh # run an $N$-body simulation with option (binary is bin/acc_unified, $N = 16384$, FILENAME is acc), base compiler is nvidia
+  qsub -v EXEC=bin/cuda_memcpy_base, OPTION="--num=16384 --file=cuda_memcpy" sh/miyabi-g/run_cuda.sh # run an $N$-body simulation with option (binary is bin/cuda_memcpy_base, $N = 16384$, FILENAME is cuda_memcpy), base compiler is cuda
+  ```
+
+  </details>
+
 * <details><summary>Wisteria/BDEC-01 (Fujitsu TCS)</summary>
 
   ```sh
@@ -143,19 +156,6 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
   pjsub sh/wisteria/run_cuda.sh # run an $N$-body simulation in default configuration, base compiler is cuda
   pjsub -x EXEC=bin/acc_unified,OPTION="--num=16384 --file=acc" sh/wisteria/run_nvidia.sh # run an $N$-body simulation with option (binary is bin/acc_unified, $N = 16384$, FILENAME is acc), base compiler is nvidia
   pjsub -x EXEC=bin/cuda_memcpy_base,OPTION="--num=16384 --file=cuda_memcpy" sh/wisteria/run_cuda.sh # run an $N$-body simulation with option (binary is bin/cuda_memcpy_base, $N = 16384$, FILENAME is cuda_memcpy), base compiler is cuda
-  ```
-
-  </details>
-
-* <details><summary>Miyabi-G (PBS Pro)</summary>
-
-  ```sh
-  qsub sh/miyabi/run_nvidia.sh # run an $N$-body simulation in default configuration, base compiler is nvidia
-  qub sh/miyabi/run_nvidia_mig.sh # run an $N$-body simulation in default configuration, base compiler is nvidia, use MIG (Multi-Instance GPU)
-  qsub sh/miyabi/run_cuda.sh # run an $N$-body simulation in default configuration, base compiler is cuda
-  qsub sh/miyabi/run_cuda_mig.sh # run an $N$-body simulation in default configuration, base compiler is cuda, use MIG (Multi-Instance GPU)
-  qsub -v EXEC=bin/acc_unified, OPTION="--num=16384 --file=acc" sh/miyabi/run_nvidia.sh # run an $N$-body simulation with option (binary is bin/acc_unified, $N = 16384$, FILENAME is acc), base compiler is nvidia
-  qsub -v EXEC=bin/cuda_memcpy_base, OPTION="--num=16384 --file=cuda_memcpy" sh/miyabi/run_cuda.sh # run an $N$-body simulation with option (binary is bin/cuda_memcpy_base, $N = 16384$, FILENAME is cuda_memcpy), base compiler is cuda
   ```
 
   </details>
@@ -187,12 +187,51 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
 ## 可視化のための事前準備（Python および Julia を使用する場合）
 
 1. Matplotlib環境の構築
+   * <details><summary>Miyabi-G 向けの環境構築</summary>
+
+     ```sh
+     mkdir -p /work/{YOUR_GROUP}/$USER/opt/$(uname -m) # 以下，{YOUR_GROUP} は全てご自分の所属グループに置き換えてください
+     cp -r modules /work/{YOUR_GROUP}/$USER/opt/
+     # /work/{YOUR_GROUP}/$USER/opt/anyenv 14行目の gt00 をご自分の所属グループに編集してください（必須）
+     cd /work/{YOUR_GROUP}/$USER/opt/$(uname -m) # Miyabi-G（aarch64環境）用の環境，Miyabi-C（x86_64環境）用の環境とを分離して構築できるようにするための工夫
+     git clone https://github.com/anyenv/anyenv
+     module use /work/{YOUR_GROUP}/$USER/opt/modules
+     module load anyenv
+     anyenv install --init # y/N を聞かれるので，y とする
+     git clone https://github.com/znz/anyenv-update.git $(anyenv root)/plugins/anyenv-update
+     anyenv update # このコマンドによって，後で導入する pyenv なども update されるようになる
+     anyenv install pyenv
+     pyenv install -l | grep miniforge3 # インストールできるバージョンを確認
+     pyenv install miniforge3-24.11.2-1 # 最新版だった 24.11.2-1 をインストール
+     pyenv rehash
+     pyenv global miniforge3-24.11.2-1
+     pyenv versions
+     cd /work/{YOUR_GROUP}/$USER/opt/modules/miniforge3
+     ln -s .generic 24.11.2-1 # これは miniforge3-24.11.2-1 をインストールした場合です
+     module load miniforge3
+     touch /work/{YOUR_GROUP}/$USER/$(uname -m)/.condarc
+     mkdir /work/{YOUR_GROUP}/$USER/$(uname -m)/.conda
+     ls -a ~ # ホームディレクトリに .condarc や .conda があるかを確認
+     mv ~/.condarc ~/.condarc.bak # もしあれば
+     mv ~/.conda ~/.conda.bak # もしあれば
+     ln -s /work/{YOUR_GROUP}/$USER/$(uname -m)/.conda* ~/
+     conda config --env --remove channels defaults
+     conda config --env --add channels conda-forge
+     # お好みのエディタで /work/{YOUR_GROUP}/$USER/.config/$(uname -m)/.condarc を開き，下記2行を追記（オプション，容量を節約したい場合）
+     # allow_softlinks: true
+     # always_softlink: true
+     conda update --all
+     conda install matplotlib
+     ```
+
+     </details>
+
    * <details><summary>Wisteria/BDEC-01 (Aquarius) 向けの環境構築</summary>
 
      ```sh
      mkdir -p /work/{YOUR_GROUP}/$USER/opt/$(uname -m) # 以下，{YOUR_GROUP} は全てご自分の所属グループに置き換えてください
      cp -r modules /work/{YOUR_GROUP}/$USER/opt/
-     # /work/{YOUR_GROUP}/$USER/opt/anyenv 14行目の gz00 をご自分の所属グループに編集してください（必須）
+     # /work/{YOUR_GROUP}/$USER/opt/anyenv 14行目の gt00 をご自分の所属グループに編集してください（必須）
      cd /work/{YOUR_GROUP}/$USER/opt/$(uname -m) # Aquarius（x86_64環境）用の環境と，Odyssey（aarch64環境）用の環境を分離して構築できるようにするための工夫
      git clone https://github.com/anyenv/anyenv
      module use /work/{YOUR_GROUP}/$USER/opt/modules
@@ -210,11 +249,12 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
      cd miniforge3 # miniconda3 をインストールした場合にはフォルダ名を miniconda3 に mv した上で cd してください
      ln -s .generic 22.9.0-2 # これは miniforge3-22.9.0-2 をインストールした場合です
      module load miniforge3
-     touch /work/{YOUR_GROUP}/$USER/.condarc
-     mkdir /work/{YOUR_GROUP}/$USER/.conda
+     touch /work/{YOUR_GROUP}/$USER/$(uname -m)/.condarc
+     mkdir /work/{YOUR_GROUP}/$USER/$(uname -m)/.conda
+     ls -a ~ # ホームディレクトリに .condarc や .conda があるかを確認
      mv ~/.condarc ~/.condarc.bak # もしあれば
      mv ~/.conda ~/.conda.bak # もしあれば
-     ln -s /{YOUR_GROUP}/$USER/.conda* ~/
+     ln -s /work/{YOUR_GROUP}/$USER/$(uname -m)/.conda* ~/
      conda config --env --remove channels defaults
      conda config --env --add channels conda-forge
      # お好みのエディタで /work/{YOUR_GROUP}/$USER/.config/$(uname -m)/.condarc を開き，下記2行を追記（オプション，容量を節約したい場合）
@@ -227,6 +267,17 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
      </details>
 
 1. Julia環境の構築
+   * <details><summary>Miyabi-G上での環境構築</summary>
+
+     ```sh
+     # 1. sh/miyabi-g/setup_julia.sh 内の gt00（2ヶ所）はご自身の所属グループに編集してください
+     # 2. sh/miyabi-g/setup_julia.sh 内の lecture-mig（2行目）はご自身が投入可能なリソースグループに編集してください
+     # 3. sh/miyabi-g/setup_julia.sh 14-17行目の Python 環境の設定をご自分の環境に合わせて編集してください（上記設定の通りにPython環境を構築した場合にはこの手順は不要）
+     qsub sh/miyabi-g/setup_julia.sh
+     ```
+
+     </details>
+
    * <details><summary>Wisteria/BDEC-01上での環境構築</summary>
 
      ```sh
@@ -235,6 +286,7 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
      ```
 
      </details>
+
    * <details><summary>お手元の環境などでの構築方法</summary>
 
      ```sh
@@ -249,6 +301,14 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
      </details>
 
 ## 計算結果の確認方法
+
+ * <details><summary>Miyabi-G上での実行方法</summary>
+
+   ```sh
+   qsub -v OPTION="--target=FILENAME" sh/miyabi-g/plot_error.sh # エネルギー保存などの時間進化を描画，sh/miyabi-g/plot_error.sh 内の gt00 をご自分の所属グループに編集してください（必須，2ヶ所あります）．FILENAMEは$N$体計算実行時に--file=として指定したものです
+   ```
+
+   </details>
 
  * <details><summary>Wisteria/BDEC-01上での実行方法</summary>
 
@@ -315,6 +375,14 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
   * 重力計算部分のみの実行時間を測定（CPU-GPU間のデータ転送は含めない）
   * Unified Memory使用版はビルドしない（CPU-GPU間のデータ転送を測定対象から除外しているため，ビルドする意味がない）
 * （必要があれば）`-DOVERWRITE_DEFAULT=ON` を指定し，`NTHREADS` や `NUNROLL` といったパラメータの値を指定
+
+* <details><summary>Miyabi-G (PBS Pro)</summary>
+
+  ```sh
+  qsub -v EXEC=bin/cuda_memcpy_shmem, OPTION="--num_min=1048576 --num_max=4194304 --num_bin=3 --file=cuda_memcpy_shmem" sh/wisteria/run_cuda.sh # run an $N$-body simulation with option (binary is bin/cuda_memcpy_shmem, FILENAME is cuda_memcpy_shmem), base compiler is cuda
+  ```
+
+  </details>
 
 * <details><summary>Wisteria/BDEC-01 (Fujitsu TCS)</summary>
 
