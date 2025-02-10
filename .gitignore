@@ -4,9 +4,9 @@
 *ninja.log
 *doxygen.log
 # directories for numerical simulations or development
-*build/
-*bench/
-*debug/
+*build*/
+*bench*/
+*debug*/
 # directory for Doxygen
 html/
 latex/

@@ -143,8 +143,8 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
   qub sh/miyabi-g/run_nvidia_mig.sh # run an $N$-body simulation in default configuration, base compiler is nvidia, use MIG (Multi-Instance GPU)
   qsub sh/miyabi-g/run_cuda.sh # run an $N$-body simulation in default configuration, base compiler is cuda
   qsub sh/miyabi-g/run_cuda_mig.sh # run an $N$-body simulation in default configuration, base compiler is cuda, use MIG (Multi-Instance GPU)
-  qsub -v EXEC=bin/acc_unified, OPTION="--num=16384 --file=acc" sh/miyabi-g/run_nvidia.sh # run an $N$-body simulation with option (binary is bin/acc_unified, $N = 16384$, FILENAME is acc), base compiler is nvidia
-  qsub -v EXEC=bin/cuda_memcpy_base, OPTION="--num=16384 --file=cuda_memcpy" sh/miyabi-g/run_cuda.sh # run an $N$-body simulation with option (binary is bin/cuda_memcpy_base, $N = 16384$, FILENAME is cuda_memcpy), base compiler is cuda
+  qsub -v EXEC=bin/acc_unified,OPTION="--num=16384 --file=acc" sh/miyabi-g/run_nvidia.sh # run an $N$-body simulation with option (binary is bin/acc_unified, $N = 16384$, FILENAME is acc), base compiler is nvidia
+  qsub -v EXEC=bin/cuda_memcpy_base,OPTION="--num=16384 --file=cuda_memcpy" sh/miyabi-g/run_cuda.sh # run an $N$-body simulation with option (binary is bin/cuda_memcpy_base, $N = 16384$, FILENAME is cuda_memcpy), base compiler is cuda
   ```
 
   </details>
