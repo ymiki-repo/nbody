@@ -13,6 +13,12 @@ $N$体計算コード（直接法）を様々なGPU向けプログラミング�
 * Released under the MIT license, see LICENSE.txt
 * Copyright (c) 2022 Yohei MIKI
 
+## 取得方法
+
+  ```sh
+  git clone --recurse-submodules git@github.com:ymiki-repo/nbody.git
+  ```
+
 ## コンパイル方法
 
 * <details><summary>コンパイルに必要なライブラリ・ツールキット:</summary>
